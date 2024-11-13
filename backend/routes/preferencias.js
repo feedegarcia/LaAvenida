@@ -9,30 +9,60 @@ router.post('/orden-secciones/:usuario_id', async (req, res) => {
         connection = await pool.getConnection();
         await connection.beginTransaction();
 
-        const { orden } = req.body;
+        const { tipo, orden, sucursal_id, grupo_id } = req.body;
 
-        const [existingPrefs] = await connection.query(
-            `SELECT preferencia_id 
-             FROM usuario_preferencias_orden 
-             WHERE usuario_id = ? 
-             AND tipo = 'GRUPO'`,
-            [req.params.usuario_id]
-        );
-
-        if (existingPrefs.length > 0) {
-            await connection.query(
-                `UPDATE usuario_preferencias_orden 
-                 SET orden = ?
-                 WHERE preferencia_id = ?`,
-                [orden, existingPrefs[0].preferencia_id]
+        // Manejar el caso especial de ORDEN_SUBCATEG
+        if (tipo === 'ORDEN_SUBCATEG') {
+            const [existingPrefs] = await connection.query(
+                `SELECT preferencia_id 
+                 FROM usuario_preferencias_orden 
+                 WHERE usuario_id = ? 
+                 AND tipo = ?`,
+                [req.params.usuario_id, tipo]
             );
+
+            if (existingPrefs.length > 0) {
+                await connection.query(
+                    `UPDATE usuario_preferencias_orden 
+                     SET orden = ?
+                     WHERE preferencia_id = ?`,
+                    [orden, existingPrefs[0].preferencia_id]
+                );
+            } else {
+                await connection.query(
+                    `INSERT INTO usuario_preferencias_orden 
+                     (usuario_id, tipo, orden) 
+                     VALUES (?, ?, ?)`,
+                    [req.params.usuario_id, tipo, orden]
+                );
+            }
         } else {
-            await connection.query(
-                `INSERT INTO usuario_preferencias_orden 
-                 (usuario_id, tipo, orden) 
-                 VALUES (?, 'GRUPO', ?)`,
-                [req.params.usuario_id, orden]
+            // El código existente para GRUPO
+            const [existingPrefs] = await connection.query(
+                `SELECT preferencia_id 
+                 FROM usuario_preferencias_orden 
+                 WHERE usuario_id = ? 
+                 AND tipo = ?
+                 AND sucursal_id = ?
+                 AND grupo_id = ?`,
+                [req.params.usuario_id, tipo, sucursal_id, grupo_id]
             );
+
+            if (existingPrefs.length > 0) {
+                await connection.query(
+                    `UPDATE usuario_preferencias_orden 
+                     SET orden = ?
+                     WHERE preferencia_id = ?`,
+                    [orden, existingPrefs[0].preferencia_id]
+                );
+            } else {
+                await connection.query(
+                    `INSERT INTO usuario_preferencias_orden 
+                     (usuario_id, tipo, sucursal_id, grupo_id, orden) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [req.params.usuario_id, tipo, sucursal_id, grupo_id, orden]
+                );
+            }
         }
 
         await connection.commit();
@@ -53,22 +83,47 @@ router.post('/orden-secciones/:usuario_id', async (req, res) => {
     }
 });
 
-// Obtener preferencias de orden
+// Modificar también la ruta GET para cargar las preferencias
 router.get('/orden-secciones/:usuario_id', async (req, res) => {
     try {
-        const [preferencias] = await pool.query(
-            `SELECT orden 
-             FROM usuario_preferencias_orden 
-             WHERE usuario_id = ? 
-             AND tipo = 'GRUPO'`,
-            [req.params.usuario_id]
-        );
+        const { tipo } = req.query; // Agregar tipo como query parameter
 
-        res.json({
-            orden: preferencias[0]?.orden || 0
-        });
+        if (tipo === 'ORDEN_SUBCATEG') {
+            // Para PedidosKanban
+            const [preferences] = await pool.query(
+                `SELECT orden 
+                FROM usuario_preferencias_orden 
+                WHERE usuario_id = ? 
+                AND tipo = 'ORDEN_SUBCATEG'
+                LIMIT 1`,
+                [req.params.usuario_id]
+            );
+            res.json({
+                orden: preferences.length > 0 ? preferences[0].orden : 0
+            });
+        } else {
+            // Para NuevoPedido
+            const [preferences] = await pool.query(
+                `SELECT sucursal_id, grupo_id, orden 
+                FROM usuario_preferencias_orden 
+                WHERE usuario_id = ? 
+                AND tipo = 'GRUPO'`,
+                [req.params.usuario_id]
+            );
+
+            // Agrupar por sucursal_id
+            const ordenPorSucursal = preferences.reduce((acc, pref) => {
+                if (!acc[pref.sucursal_id]) {
+                    acc[pref.sucursal_id] = [];
+                }
+                acc[pref.sucursal_id][pref.orden] = parseInt(pref.grupo_id);
+                return acc;
+            }, {});
+
+            res.json(ordenPorSucursal);
+        }
     } catch (error) {
-        console.error('Error en obtener preferencias:', error);
+        console.error('Error obteniendo preferencias:', error);
         res.status(500).json({
             message: 'Error al obtener preferencias',
             error: error.message

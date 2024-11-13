@@ -174,12 +174,11 @@
         transform: translateY(-10px);
     }
 </style>
-
 <script setup>
     import { ref, computed, onMounted } from 'vue'
     import { jwtDecode } from 'jwt-decode'
-    import axios from 'axios'
     import { useRouter } from 'vue-router'
+    import axios from 'axios'
 
     // Configuración básica de axios
     axios.defaults.baseURL = 'http://localhost:3000'
@@ -189,7 +188,7 @@
     const sucursalSeleccionada = ref(null)
     const sucursalesUsuario = ref([])
     const colapsados = ref(new Set())
-    const ordenSubcategorias = ref(new Map());
+    const ordenSubcategorias = ref(new Map())
     const pedido = ref({
         fecha_entrega_requerida: '',
         notas: ''
@@ -197,7 +196,6 @@
     const productos = ref(null)
     const cantidades = ref({})
     const errores = ref({})
-
 
     // Computed
     const productosPorSucursal = computed(() => productos.value)
@@ -216,31 +214,28 @@
         colapsados.value.has(`${sucursalId}_${subcategoriaId}`)
 
     // Sistema de ordenamiento
-    // Primero, modifiquemos getSubcategoriasOrdenadas
     const getSubcategoriasOrdenadas = (sucursalId, subcategorias) => {
         if (!subcategorias || typeof subcategorias !== 'object') {
-            return [];
+            return []
         }
 
-        // Convertir las subcategorías a array
         const items = Object.entries(subcategorias).map(([id, data]) => ({
             ...data,
             subcategoria_id: parseInt(id)
-        }));
+        }))
 
-        // Obtener el orden actual
-        const orden = ordenSubcategorias.value.get(parseInt(sucursalId));
+        const orden = ordenSubcategorias.value.get(parseInt(sucursalId))
 
         if (!orden) {
-            return items;
+            return items
         }
 
         return [...items].sort((a, b) => {
-            const indexA = orden.indexOf(a.subcategoria_id);
-            const indexB = orden.indexOf(b.subcategoria_id);
-            return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
-        });
-    };
+            const indexA = orden.indexOf(a.subcategoria_id)
+            const indexB = orden.indexOf(b.subcategoria_id)
+            return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB)
+        })
+    }
 
     const moverGrupo = async (sucursalId, subcategoriaId, direccion) => {
         try {
@@ -274,21 +269,21 @@
             ordenSubcategorias.value = new Map(ordenSubcategorias.value)
             ordenSubcategorias.value.set(sucId, newOrden)
 
-            await axios.post(`/api/preferencias/${usuarioId}`, {
-                sucursal_id: sucId,
-                grupos: newOrden.map((id, index) => ({
-                    grupo_id: id,
-                    orden: index
-                }))
-            }, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            for (let i = 0; i < newOrden.length; i++) {
+                await axios.post(`/api/preferencias/orden-secciones/${usuarioId}`, {
+                    sucursal_id: sucId,
+                    grupo_id: newOrden[i].toString(),
+                    orden: i,
+                    tipo: 'GRUPO'
+                }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+            }
 
         } catch (error) {
             console.error('Error al guardar el orden:', error)
         }
     }
-
 
     // Funciones de carga
     const cargarPreferencias = async () => {
@@ -297,18 +292,19 @@
             const decodedToken = jwtDecode(token)
             const usuarioId = decodedToken.id
 
-            const response = await axios.get(`/api/preferencias/orden-secciones/${usuarioId}`)
+            const response = await axios.get(`/api/preferencias/orden-secciones/${usuarioId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
 
-            // Si hay orden guardado, convertirlo a Map
-            if (response.data.orden) {
-                try {
-                    const ordenObj = JSON.parse(response.data.orden);
-                    Object.entries(ordenObj).forEach(([key, value]) => {
-                        ordenSubcategorias.value.set(parseInt(key), value);
-                    });
-                } catch (e) {
-                    console.log('Error parseando orden:', e);
-                }
+            if (response.data && Object.keys(response.data).length > 0) {
+                ordenSubcategorias.value = new Map()
+
+                Object.entries(response.data).forEach(([sucursalId, orden]) => {
+                    const ordenFiltrado = orden.filter(id => id != null).map(Number)
+                    if (ordenFiltrado.length > 0) {
+                        ordenSubcategorias.value.set(parseInt(sucursalId), ordenFiltrado)
+                    }
+                })
             }
         } catch (error) {
             console.error('Error cargando preferencias:', error)
@@ -340,14 +336,10 @@
 
     const cargarDatos = async () => {
         try {
-
             const response = await axios.get('/api/productos/pedido', {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             })
             productos.value = response.data
-
-            // Debug estructura
-
         } catch (error) {
             console.error('Error cargando productos:', error)
         }

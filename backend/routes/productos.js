@@ -5,7 +5,6 @@ const pool = require('../config/database');
 
 router.get('/pedido', async (req, res) => {
     try {
-        console.log('Iniciando consulta de productos');
 
         const [rows] = await pool.query(`
     SELECT DISTINCT
@@ -41,10 +40,7 @@ router.get('/pedido', async (req, res) => {
     )
 `);
 
-        console.log('Query ejecutada, rows:', {
-            cantidad: rows.length,
-            muestra: rows[0]
-        });
+        
 
         const agrupados = {
             fabricas: {},
@@ -53,7 +49,6 @@ router.get('/pedido', async (req, res) => {
         };
 
         if (!rows || rows.length === 0) {
-            console.log('No se encontraron productos');
             return res.json(agrupados);
         }
 
@@ -90,13 +85,6 @@ router.get('/pedido', async (req, res) => {
             } else if (!agrupados.varios.find(p => p.producto_id === producto.producto_id)) {
                 agrupados.varios.push(producto);
             }
-        });
-
-        console.log('Resumen de productos procesados:', {
-            total: rows.length,
-            fabricas: Object.keys(agrupados.fabricas).length,
-            sinTac: agrupados.sinTac.length,
-            varios: agrupados.varios.length
         });
 
         return res.json(agrupados);

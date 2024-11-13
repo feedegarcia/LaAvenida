@@ -352,9 +352,12 @@
             const decodedToken = jwtDecode(token)
             if (!decodedToken?.id) return
 
-            const response = await axios.post(
+            await axios.post(
                 `/api/preferencias/orden-secciones/${decodedToken.id}`,
-                { orden: ordenInvertido.value ? 1 : 0 },
+                {
+                    tipo: 'ORDEN_SUBCATEG',
+                    orden: ordenInvertido.value ? 1 : 0
+                },
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -362,10 +365,6 @@
                     }
                 }
             )
-
-            if (!response.data.success) {
-                throw new Error('No se pudo guardar la preferencia')
-            }
         } catch (error) {
             console.error('Error al guardar preferencias:', error)
         }
@@ -375,17 +374,14 @@
         try {
             const token = localStorage.getItem('token')
             if (!token) return
-
             const decodedToken = jwtDecode(token)
             if (!decodedToken?.id) return
-
             const response = await axios.get(
-                `/api/preferencias/orden-secciones/${decodedToken.id}`,
+                `/api/preferencias/orden-secciones/${decodedToken.id}?tipo=ORDEN_SUBCATEG`,
                 {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }
             )
-
             ordenInvertido.value = response.data.orden === 1
         } catch (error) {
             console.error('Error al cargar preferencias:', error)
