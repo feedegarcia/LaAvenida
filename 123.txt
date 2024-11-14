@@ -1,0 +1,4 @@
+Get-ChildItem -Recurse -Include *.vue,*.js | ForEach-Object {
+    $content = Get-Content $_.FullName
+    Set-Content $_.FullName -Value $content -Encoding UTF8
+}

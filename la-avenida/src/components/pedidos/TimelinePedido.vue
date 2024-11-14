@@ -1,7 +1,7 @@
-
+﻿
 <template>
     <div class="p-4">
-        <!-- Información principal del pedido -->
+        <!-- InformaciÃ³n principal del pedido -->
         <div class="mb-6 grid grid-cols-2 gap-4">
             <div class="space-y-2">
                 <div>
@@ -54,14 +54,14 @@
                             <EstadoPedido :estado="pedido.estado" />
                         </div>
 
-                        <!-- Mostrar información de cancelación si está cancelado -->
+                        <!-- Mostrar informaciÃ³n de cancelaciÃ³n si estÃ¡ cancelado -->
                         <div v-if="pedido.estado === 'CANCELADO'" class="mt-2 text-sm text-red-600">
                             <p><strong>Cancelado por:</strong> {{ pedido.cancelado_por }}</p>
                             <p><strong>Motivo:</strong> {{ pedido.motivo_cancelacion }}</p>
                             <p><strong>Fecha:</strong> {{ formatoFechaCompleta(pedido.fecha_cancelacion) }}</p>
                         </div>
 
-                        <!-- Acciones disponibles según estado -->
+                        <!-- Acciones disponibles segÃºn estado -->
                         <div v-if="pedido.estado !== 'RECIBIDO' && pedido.estado !== 'CANCELADO'" class="mt-4 space-x-2">
                             <button v-if="pedido.estado === 'BORRADOR'"
                                     @click="confirmarPedido"
@@ -81,7 +81,7 @@
                                 Modificar
                             </button>
 
-                            <!-- Botón de cancelación -->
+                            <!-- BotÃ³n de cancelaciÃ³n -->
                             <button v-if="puedeCancelar"
                                     @click="mostrarModalCancelacion"
                                     class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
@@ -90,14 +90,14 @@
                         </div>
                     </div>
                 </div>
-                <!--  Solicitudes de modificación -->>
+                <!--  Solicitudes de modificaciÃ³n -->>
                 <div v-if="pedido.tiene_solicitud_pendiente" class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
                         <div class="w-5 h-5 rounded-full bg-orange-400 border-2 border-white shadow"></div>
                     </div>
                     <div class="bg-white rounded-lg border border-orange-200 p-4">
                         <div class="flex justify-between items-start mb-2">
-                            <h4 class="font-medium text-orange-800">Solicitud de Modificación Pendiente</h4>
+                            <h4 class="font-medium text-orange-800">Solicitud de ModificaciÃ³n Pendiente</h4>
                             <span class="text-sm text-gray-500">
                                 {{ formatoFechaCompleta(solicitud?.fecha_solicitud) }}
                             </span>
@@ -200,7 +200,7 @@
             </div>
         </div>
 
-        <!-- Modal de Cancelación -->
+        <!-- Modal de CancelaciÃ³n -->
         <CancelacionModal :show="showCancelacionModal"
                           :pedido-id="pedido.pedido_id"
                           @close="showCancelacionModal = false"
@@ -306,11 +306,11 @@
     // Agregar al setup
     const solicitud = ref(null)
     const puedeAprobarSolicitud = computed(() => {
-        // Aquí puedes agregar lógica adicional según roles si es necesario
+        // AquÃ­ puedes agregar lÃ³gica adicional segÃºn roles si es necesario
         return ['EN_FABRICA', 'PREPARADO_MODIFICADO'].includes(props.pedido.estado)
     })
 
-    // Agregar método para cargar la solicitud
+    // Agregar mÃ©todo para cargar la solicitud
     const cargarSolicitud = async () => {
         try {
             const response = await axios.get(
@@ -328,7 +328,7 @@
         }
     }
 
-    // Agregar método para responder a la solicitud
+    // Agregar mÃ©todo para responder a la solicitud
     const responderSolicitud = async (estado) => {
         try {
             await axios.patch(

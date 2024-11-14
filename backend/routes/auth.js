@@ -30,10 +30,10 @@ router.post('/login', async (req, res) => {
 
         // Verificar password
         const validPassword = await bcrypt.compare(password, user.password);
-        console.log('Password v�lido:', validPassword); // Debug
+        console.log('Password vÃ¡lido:', validPassword); // Debug
 
         if (!validPassword) {
-            return res.status(401).json({ message: 'Contrase�a incorrecta' });
+            return res.status(401).json({ message: 'ContraseÃ±a incorrecta' });
         }
 
         // Generar token
@@ -74,10 +74,10 @@ router.post('/register', async (req, res) => {
         );
 
         if (existingUsers.length > 0) {
-            return res.status(400).json({ message: 'El email ya est� registrado' });
+            return res.status(400).json({ message: 'El email ya estÃ¡ registrado' });
         }
 
-        // Generar hash de la contrase�a
+        // Generar hash de la contraseÃ±a
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 

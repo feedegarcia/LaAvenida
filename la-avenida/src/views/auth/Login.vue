@@ -1,4 +1,4 @@
-
+ï»¿
 <template>
     <div class="min-h-screen flex items-center justify-center bg-gray-100">
         <div class="max-w-md w-full">
@@ -23,7 +23,7 @@
                     <!-- Password -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Contraseña
+                            ContraseÃ±a
                         </label>
                         <input type="password"
                                v-model="password"
@@ -79,7 +79,7 @@
             router.push('/')
         } catch (err) {
             console.error('Error completo:', err); // Debug
-            error.value = err.response?.data?.message || 'Error al iniciar sesión'
+            error.value = err.response?.data?.message || 'Error al iniciar sesiÃ³n'
         } finally {
             loading.value = false
         }

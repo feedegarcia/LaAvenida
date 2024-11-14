@@ -9,6 +9,7 @@
                     <label class="text-sm text-gray-600">Fecha de entrega:</label>
                     <input type="date"
                            v-model="pedido.fecha_entrega_requerida"
+                           :min="fechaMinima"
                            class="ml-2 border rounded-md px-2 py-1">
                 </div>
             </div>
@@ -22,6 +23,57 @@
                     Confirmar Pedido
                 </button>
             </div>
+        </div>
+
+        <!-- Mini Calendario y Clima -->
+        <div class="mb-6 grid grid-cols-2 gap-6">
+            <!-- Mini Calendario -->
+            <div class="bg-white rounded-lg border p-4">
+                <div class="mb-4 flex justify-between items-center">
+                    <button @click="cambiarMes(-1)" class="p-1 hover:bg-gray-100 rounded">
+                        <ChevronLeft class="w-5 h-5" />
+                    </button>
+                    <h4 class="font-medium">
+                        {{
+                            new Date(currentDate).toLocaleDateString('es-AR', {
+                                month: 'long',
+                                year: 'numeric'
+                            })
+                        }}
+                    </h4>
+                    <button @click="cambiarMes(1)" class="p-1 hover:bg-gray-100 rounded">
+                        <ChevronRight class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-7 gap-px bg-gray-200">
+                    <div v-for="dia in ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']"
+                         :key="dia"
+                         class="bg-gray-50 p-2 text-center text-sm font-medium">
+                        {{ dia }}
+                    </div>
+
+                    <div v-for="date in obtenerDiasMes"
+                         :key="date.toISOString()"
+                         @click="seleccionarFecha(date)"
+                         :class="[
+                            'bg-white p-2 text-center cursor-pointer hover:bg-gray-50',
+                            esFechaSeleccionada(date) ? 'bg-emerald-50 border-emerald-500 border-2' : '',
+                            esProximaEntrega(date) ? 'bg-blue-50' : '',
+                            eventosStore.tieneEventos(date) ? 'bg-yellow-50' : '',
+                            !esFechaValida(date) ? 'text-gray-300 cursor-not-allowed' : ''
+                         ]">
+                        {{ date.getDate() }}
+                        <div v-if="eventosStore.tieneEventos(date)"
+                             class="w-1 h-1 bg-yellow-400 rounded-full mx-auto mt-1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget del Clima -->
+            <WeatherWidget v-if="fechaSeleccionada"
+                           :fecha-pedido="fechaSeleccionada" />
         </div>
 
         <!-- Selector de Sucursal -->
@@ -176,12 +228,114 @@
 </style>
 <script setup>
     import { ref, computed, onMounted } from 'vue'
-    import { jwtDecode } from 'jwt-decode'
-    import { useRouter } from 'vue-router'
+    import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+    import { useEventosStore } from '@/stores/eventos'
+    import WeatherWidget from './WeatherWidget.vue'
     import axios from 'axios'
+    import { useRouter } from 'vue-router'
+    import { jwtDecode } from 'jwt-decode'
 
     // Configuración básica de axios
     axios.defaults.baseURL = 'http://localhost:3000'
+    const eventosStore = useEventosStore()
+    const currentDate = ref(new Date())
+    const fechaSeleccionada = ref(obtenerProximaFechaEntrega())
+
+    // Función para obtener la próxima fecha de entrega (miércoles o sábado)
+    function obtenerProximaFechaEntrega() {
+        const hoy = new Date()
+        let fecha = new Date(hoy)
+
+        // Si es después de las 11 AM, empezar desde mañana
+        if (hoy.getHours() >= 11) {
+            fecha.setDate(fecha.getDate() + 1)
+        }
+
+        while (true) {
+            const dia = fecha.getDay()
+            // Si es miércoles (3) o sábado (6)
+            if (dia === 3 || dia === 6) {
+                break
+            }
+            fecha.setDate(fecha.getDate() + 1)
+        }
+
+        return fecha
+    }
+
+    // Computed para los días del mes actual
+    const obtenerDiasMes = computed(() => {
+        const year = currentDate.value.getFullYear()
+        const month = currentDate.value.getMonth()
+        const primerDia = new Date(year, month, 1)
+        const ultimoDia = new Date(year, month + 1, 0)
+        const dias = []
+
+        // Agregar días del mes anterior para completar la primera semana
+        for (let i = 0; i < primerDia.getDay(); i++) {
+            const fecha = new Date(year, month, -i)
+            dias.unshift(fecha)
+        }
+
+        // Agregar días del mes actual
+        for (let i = 1; i <= ultimoDia.getDate(); i++) {
+            dias.push(new Date(year, month, i))
+        }
+
+        // Agregar días del mes siguiente para completar la última semana
+        const diasRestantes = 7 - (dias.length % 7)
+        if (diasRestantes < 7) {
+            for (let i = 1; i <= diasRestantes; i++) {
+                dias.push(new Date(year, month + 1, i))
+            }
+        }
+
+        return dias
+    })
+
+    // Fecha mínima permitida (hoy)
+    const fechaMinima = computed(() => {
+        const fecha = new Date()
+        return fecha.toISOString().split('T')[0]
+    })
+
+    const cambiarMes = (delta) => {
+        const nuevaFecha = new Date(currentDate.value)
+        nuevaFecha.setMonth(nuevaFecha.getMonth() + delta)
+        currentDate.value = nuevaFecha
+    }
+
+    const esFechaSeleccionada = (fecha) => {
+        return fechaSeleccionada.value?.toDateString() === fecha.toDateString()
+    }
+
+    const esProximaEntrega = (fecha) => {
+        const dia = fecha.getDay()
+        return (dia === 3 || dia === 6) && esFechaValida(fecha)
+    }
+
+    const esFechaValida = (fecha) => {
+        const hoy = new Date()
+        return fecha >= hoy
+    }
+
+    const seleccionarFecha = (fecha) => {
+        if (!esFechaValida(fecha)) return
+
+        fechaSeleccionada.value = fecha
+        pedido.value.fecha_entrega_requerida = fecha.toISOString().split('T')[0]
+    }
+
+    // Inicialización
+    onMounted(async () => {
+        await eventosStore.inicializar()
+
+        // Si no hay fecha seleccionada, seleccionar la próxima fecha de entrega
+        if (!fechaSeleccionada.value) {
+            fechaSeleccionada.value = obtenerProximaFechaEntrega()
+            pedido.value.fecha_entrega_requerida = fechaSeleccionada.value.toISOString().split('T')[0]
+        }
+    })
 
     const router = useRouter()
     const borradorActivo = ref(null)
@@ -350,16 +504,6 @@
         localStorage.setItem('ultimaSucursalSeleccionada', sucursalSeleccionada.value)
     }
 
-    const obtenerProximaFechaEntrega = () => {
-        const hoy = new Date()
-        let fecha = new Date(hoy)
-        while (true) {
-            fecha.setDate(fecha.getDate() + 1)
-            const dia = fecha.getDay()
-            if (dia === 3 || dia === 6) break
-        }
-        return fecha.toISOString().split('T')[0]
-    }
 
     const formatearNombre = (nombre) => {
         const palabras = nombre.split(' ')

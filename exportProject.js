@@ -1,18 +1,18 @@
-const fs = require('fs');
+Ôªøconst fs = require('fs');
 const path = require('path');
 const os = require('os');
 
 // Define las extensiones de archivos que deseas incluir
 const allowedExtensions = ['.js', '.vue', '.html', '.css'];
 
-// Carpeta donde se guardar· el archivo de salida
+// Carpeta donde se guardar√° el archivo de salida
 const outputDir = path.join(os.homedir(), 'Documents');
 const outputFile = path.join(outputDir, 'project_structure.txt');
 
 // Carpetas a excluir
 const excludeFolders = ['node_modules', '.git', '.vs', 'dist'];
 
-// FunciÛn para recorrer toda la estructura de carpetas
+// Funci√≥n para recorrer toda la estructura de carpetas
 function readDirectoryAndContent(dirPath, indent = '', structureArray = [], contentArray = []) {
     const files = fs.readdirSync(dirPath);
 
@@ -21,14 +21,14 @@ function readDirectoryAndContent(dirPath, indent = '', structureArray = [], cont
         const stat = fs.statSync(filePath);
 
         if (stat.isDirectory() && !excludeFolders.includes(file)) {
-            // AÒade la carpeta a la estructura
+            // A√±ade la carpeta a la estructura
             structureArray.push(`${indent}${file}/`);
-            // RecursiÛn para subdirectorios
+            // Recursi√≥n para subdirectorios
             readDirectoryAndContent(filePath, indent + '  ', structureArray, contentArray);
         } else {
             const extname = path.extname(file);
             if (allowedExtensions.includes(extname)) {
-                // AÒade el archivo a la estructura
+                // A√±ade el archivo a la estructura
                 structureArray.push(`${indent}${file}`);
 
                 // Lee el contenido del archivo

@@ -70,7 +70,7 @@ router.post('/', async (req, res) => {
 
         if (existingUsers.length > 0) {
             return res.status(400).json({
-                message: 'El email ya est� registrado'
+                message: 'El email ya estÃ¡ registrado'
             });
         }
 
@@ -119,15 +119,17 @@ router.post('/', async (req, res) => {
     }
 });
 
+
 router.get('/:id/sucursales', async (req, res) => {
     try {
         const [sucursales] = await pool.query(
             `SELECT s.*, us.activo as relacion_activa
              FROM sucursal s
              JOIN usuario_sucursal us ON s.sucursal_id = us.sucursal_id
-             WHERE us.usuario_id = ?`,
+             WHERE us.usuario_id = ? AND us.activo = 1 AND s.activo = 1`,
             [req.params.id]
         );
+
         res.json(sucursales);
     } catch (error) {
         console.error('Error:', error);
@@ -149,7 +151,7 @@ router.patch('/:id', async (req, res) => {
         const { id } = req.params
         const { nombre, rol_id, sucursales } = req.body
 
-        // Actualizar datos b�sicos del usuario
+        // Actualizar datos bÃ¡sicos del usuario
         await connection.query(
             `UPDATE USUARIO SET nombre = ?, rol_id = ? WHERE usuario_id = ?`,
             [nombre, rol_id, id]

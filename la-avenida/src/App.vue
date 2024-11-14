@@ -1,5 +1,4 @@
-
-<template>
+﻿<template>
     <router-view v-if="isLoginPage"></router-view>
     <div v-else class="min-h-screen bg-gray-100 flex">
         <Sidebar />
@@ -12,10 +11,18 @@
 </template>
 
 <script setup>
-    import { computed } from 'vue'
+    import { computed, onMounted } from 'vue'
     import { useRoute } from 'vue-router'
+    import { useEventosStore } from '@/stores/eventos'
     import Sidebar from './components/layout/Sidebar.vue'
 
     const route = useRoute()
+    const eventosStore = useEventosStore()
     const isLoginPage = computed(() => route.path === '/login')
+
+    onMounted(async () => {
+        if (!isLoginPage.value) {
+            await eventosStore.inicializar()
+        }
+    })
 </script>

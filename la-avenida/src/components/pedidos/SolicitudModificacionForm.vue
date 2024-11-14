@@ -1,8 +1,8 @@
-
+﻿
 <template>
     <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
         <div class="flex justify-between items-start mb-6">
-            <h3 class="text-lg font-bold text-avenida-black">Solicitar Modificación de Pedido</h3>
+            <h3 class="text-lg font-bold text-avenida-black">Solicitar ModificaciÃ³n de Pedido</h3>
             <button @click="$emit('close')"
                     class="text-gray-400 hover:text-gray-600">
                 x

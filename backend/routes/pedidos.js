@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 
-// Obtener todos los pedidos con informaci�n completa
+// Obtener todos los pedidos con informaciÃ³n completa
 router.get('/', async (req, res) => {
     try {
         const [pedidos] = await pool.query(`
@@ -72,7 +72,7 @@ router.post('/:id/solicitud-modificacion', async (req, res) => {
     }
 });
 
-// Obtener detalle de un pedido espec�fico
+// Obtener detalle de un pedido especÃ­fico
 router.get('/:id', async (req, res) => {
     try {
         const [pedido] = await pool.query(`
@@ -129,7 +129,7 @@ router.post('/', async (req, res) => {
             notas
         } = req.body;
 
-        // Aqu� est� el cambio: 'PENDIENTE' -> 'EN_FABRICA'
+        // AquÃ­ estÃ¡ el cambio: 'PENDIENTE' -> 'EN_FABRICA'
         const [result] = await connection.query(
             `INSERT INTO pedido (
                 sucursal_origen,
@@ -276,7 +276,7 @@ router.patch('/:id/solicitudes/:solicitud_id', async (req, res) => {
     }
 });
 
-// Solicitar modificaci�n de pedido
+// Solicitar modificaciÃ³n de pedido
 router.post('/:id/solicitud-modificacion', async (req, res) => {
     const connection = await pool.getConnection();
     try {
@@ -307,13 +307,13 @@ router.post('/:id/solicitud-modificacion', async (req, res) => {
 
         await connection.commit();
         res.status(201).json({
-            message: 'Solicitud de modificaci�n creada exitosamente',
+            message: 'Solicitud de modificaciÃ³n creada exitosamente',
             solicitud_id
         });
     } catch (error) {
         await connection.rollback();
         res.status(500).json({
-            message: 'Error al crear solicitud de modificaci�n',
+            message: 'Error al crear solicitud de modificaciÃ³n',
             error: error.message
         });
     } finally {
@@ -357,12 +357,12 @@ router.patch('/:id/solicitud-modificacion/:solicitud_id', async (req, res) => {
 
         await connection.commit();
         res.json({
-            message: `Solicitud de modificaci�n ${estado.toLowerCase()} exitosamente`
+            message: `Solicitud de modificaciÃ³n ${estado.toLowerCase()} exitosamente`
         });
     } catch (error) {
         await connection.rollback();
         res.status(500).json({
-            message: 'Error al procesar solicitud de modificaci�n',
+            message: 'Error al procesar solicitud de modificaciÃ³n',
             error: error.message
         });
     } finally {
@@ -370,7 +370,7 @@ router.patch('/:id/solicitud-modificacion/:solicitud_id', async (req, res) => {
     }
 });
 
-// Obtener solicitudes de modificaci�n de un pedido
+// Obtener solicitudes de modificaciÃ³n de un pedido
 router.get('/:id/solicitudes-modificacion', async (req, res) => {
     try {
         const [solicitudes] = await pool.query(
@@ -394,7 +394,7 @@ router.get('/:id/solicitudes-modificacion', async (req, res) => {
         res.json(solicitudes);
     } catch (error) {
         res.status(500).json({
-            message: 'Error al obtener solicitudes de modificaci�n',
+            message: 'Error al obtener solicitudes de modificaciÃ³n',
             error: error.message
         });
     }
@@ -460,7 +460,7 @@ router.post('/borrador', async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Error en creaci�n de borrador:', error)
+        console.error('Error en creaciÃ³n de borrador:', error)
         res.status(500).json({
             message: 'Error al crear el borrador',
             error: error.message
@@ -559,10 +559,10 @@ router.patch('/:id/estado', async (req, res) => {
         ];
 
         if (!estadosValidos.includes(estado)) {
-            throw new Error('Estado inv�lido');
+            throw new Error('Estado invÃ¡lido');
         }
 
-        // Si es cancelaci�n, requerir motivo
+        // Si es cancelaciÃ³n, requerir motivo
         if (estado === 'CANCELADO' && !motivo) {
             throw new Error('Se requiere un motivo para cancelar el pedido');
         }

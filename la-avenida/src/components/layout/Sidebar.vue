@@ -1,4 +1,4 @@
-<template>
+ï»¿<template>
     <div class="fixed inset-y-0 left-0 w-64 bg-avenida-black text-white">
         <div class="p-4">
             <h2 class="text-2xl font-bold mb-8">La Avenida</h2>
@@ -19,7 +19,7 @@
                              active-class="bg-avenida-green">
                     Usuarios
                 </router-link>
-                <!-- Agregar después del link de Usuarios -->
+                <!-- Agregar despuÃ©s del link de Usuarios -->
                 <router-link v-if="userRole === 'ADMIN'"
                              to="/admin/sucursales"
                              class="block py-2.5 px-4 rounded transition duration-200 hover:bg-avenida-green"
@@ -54,7 +54,7 @@
                 <a href="#"
                    @click.prevent="logout"
                    class="block py-2.5 px-4 rounded transition duration-200 hover:bg-avenida-green">
-                    Cerrar Sesión
+                    Cerrar SesiÃ³n
                 </a>
             </nav>
         </div>

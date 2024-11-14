@@ -1,4 +1,4 @@
-<template>
+Ôªø<template>
     <div v-if="show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <div class="flex justify-between items-center mb-4">
@@ -31,9 +31,9 @@
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-avenida-green focus:ring-avenida-green">
                 </div>
 
-                <!-- ContraseÒa (solo para nuevos usuarios) -->
+                <!-- Contrase√±a (solo para nuevos usuarios) -->
                 <div v-if="!editingUser">
-                    <label class="block text-sm font-medium text-gray-700">ContraseÒa</label>
+                    <label class="block text-sm font-medium text-gray-700">Contrase√±a</label>
                     <input v-model="formData.password"
                            type="password"
                            required
@@ -82,7 +82,7 @@
                         </div>
                     </div>
                     <p class="text-sm text-gray-500 mt-1">
-                        * Las sucursales inactivas solo aparecer·n si el usuario ya estaba asignado a ellas
+                        * Las sucursales inactivas solo aparecer√°n si el usuario ya estaba asignado a ellas
                     </p>
                 </div>
 
@@ -157,7 +157,7 @@
             sucursales.value = sucursalesRes.data
         } catch (err) {
             console.error('Error cargando datos:', err)
-            error.value = 'Error al cargar datos. Por favor, recarga la p·gina.'
+            error.value = 'Error al cargar datos. Por favor, recarga la p√°gina.'
         } finally {
             loading.value = false
         }

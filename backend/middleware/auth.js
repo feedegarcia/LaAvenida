@@ -5,7 +5,7 @@ const authenticateToken = (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-        return res.status(401).json({ message: 'No se proporcion� token de acceso' });
+        return res.status(401).json({ message: 'No se proporcionÃ³ token de acceso' });
     }
 
     try {
@@ -14,7 +14,7 @@ const authenticateToken = (req, res, next) => {
         req.user = decoded;
         next();
     } catch (error) {
-        return res.status(403).json({ message: 'Token inv�lido' });
+        return res.status(403).json({ message: 'Token invÃ¡lido' });
     }
 }
 

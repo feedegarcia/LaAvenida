@@ -1,4 +1,4 @@
-
+﻿
 <template>
     <span class="px-2 py-1 text-xs rounded-full font-medium"
           :class="{
@@ -26,7 +26,7 @@
     const estadoLabel = computed(() => {
         const labels = {
             'BORRADOR': 'Borrador',
-            'EN_FABRICA': 'En F�brica',
+            'EN_FABRICA': 'En Fábrica',
             'PREPARADO_MODIFICADO': 'Modificado',
             'RECIBIDO_CON_DIFERENCIAS': 'Con Diferencias',
             'RECIBIDO': 'Recibido',

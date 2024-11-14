@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss').Config} */
+﻿/** @type {import('tailwindcss').Config} */
 export default {
     content: [
         "./index.html",
@@ -13,7 +13,7 @@ export default {
                     green: '#2D5A27',     // Verde oscuro (como espinaca)
                     'green-light': '#4C9F38', // Verde claro (como albahaca)
                     red: '#9B2335',       // Rojo (como tomate)
-                    'red-light': '#E55137' // Rojo claro (como morr�n)
+                    'red-light': '#E55137' // Rojo claro (como morrón)
                 }
             }
         },

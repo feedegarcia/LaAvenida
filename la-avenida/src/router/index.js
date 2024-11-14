@@ -1,4 +1,4 @@
-// src/router/index.js
+ï»¿// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { jwtDecode } from 'jwt-decode'
 
@@ -81,7 +81,7 @@ const router = createRouter({
     routes
 })
 
-// Guard de navegación mejorado
+// Guard de navegaciÃ³n mejorado
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
 
@@ -93,7 +93,7 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAdmin && token) {
         try {
             const decoded = jwtDecode(token)
-            if (decoded.rol !== 'ADMIN' && decoded.rol !== 'DUEÑO') {
+            if (decoded.rol !== 'ADMIN' && decoded.rol !== 'DUEÃ‘O') {
                 next('/')
                 return
             }

@@ -15,7 +15,7 @@ const getFeriados = async (req, res) => {
                 const response = await axios.get(`http://nolaborables.com.ar/api/v2/feriados/${currentYear}`);
 
                 if (!response.data || !Array.isArray(response.data)) {
-                    throw new Error('Formato de respuesta inv�lido de la API de feriados');
+                    throw new Error('Formato de respuesta invÃ¡lido de la API de feriados');
                 }
 
                 const feriadosToInsert = response.data.map(feriado => [
@@ -44,10 +44,10 @@ const getFeriados = async (req, res) => {
                 console.error('Error obteniendo feriados de la API:', apiError);
                 // Si falla la API, intentamos devolver feriados por defecto
                 const feriadosDefault = [
-                    // Feriados inamovibles m�s importantes
-                    { fecha: `${currentYear}-01-01`, motivo: 'A�o Nuevo', tipo: 'inamovible', es_nacional: true },
-                    { fecha: `${currentYear}-05-01`, motivo: 'D�a del Trabajador', tipo: 'inamovible', es_nacional: true },
-                    { fecha: `${currentYear}-07-09`, motivo: 'D�a de la Independencia', tipo: 'inamovible', es_nacional: true },
+                    // Feriados inamovibles mÃ¡s importantes
+                    { fecha: `${currentYear}-01-01`, motivo: 'AÃ±o Nuevo', tipo: 'inamovible', es_nacional: true },
+                    { fecha: `${currentYear}-05-01`, motivo: 'DÃ­a del Trabajador', tipo: 'inamovible', es_nacional: true },
+                    { fecha: `${currentYear}-07-09`, motivo: 'DÃ­a de la Independencia', tipo: 'inamovible', es_nacional: true },
                     { fecha: `${currentYear}-12-25`, motivo: 'Navidad', tipo: 'inamovible', es_nacional: true },
                 ];
 

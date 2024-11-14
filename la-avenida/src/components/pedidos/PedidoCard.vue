@@ -1,4 +1,4 @@
-
+ï»¿
 <template>
     <div class="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
          :class="{ 'border-2 border-orange-400 bg-orange-50': highlight }"
@@ -7,10 +7,10 @@
             <div>
                 <span class="text-sm font-medium">#{{ pedido.pedido_id }}</span>
                 <h4 class="font-medium">{{ pedido.destino }}</h4>
-                <!-- Badge de modificación pendiente -->
+                <!-- Badge de modificaciÃ³n pendiente -->
                 <span v-if="highlight"
                       class="inline-block px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full mt-1">
-                    Modificación pendiente
+                    ModificaciÃ³n pendiente
                 </span>
             </div>
             <span class="px-2 py-1 text-xs rounded-full"
@@ -64,7 +64,7 @@
     })
 
     const esRolAdministrativo = computed(() =>
-        userRole.value === 'ADMIN' || userRole.value === 'DUEÑO'
+        userRole.value === 'ADMIN' || userRole.value === 'DUEÃ‘O'
     )
 
     const estadoClasses = computed(() => ({

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <Dialog as="div" :open="show" @close="closeModal" class="relative z-[60]">
         <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
 

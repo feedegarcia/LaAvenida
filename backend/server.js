@@ -33,6 +33,10 @@ app.use('/api/users', usersRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/preferencias', preferenciasRoutes);
 
+const iconv = require('iconv-lite');
+iconv.skipDecodeWarning = true;
+
+
 // Puerto y inicio del servidor
 const PORT = 3000;
 app.listen(PORT, () => {

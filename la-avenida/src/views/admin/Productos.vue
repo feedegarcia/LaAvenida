@@ -1,8 +1,8 @@
-<template>
+ï»¿<template>
     <div>
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-avenida-black">Gestión de Productos</h2>
+            <h2 class="text-2xl font-bold text-avenida-black">GestiÃ³n de Productos</h2>
             <button @click="productosStore.showModal = true"
                     class="px-4 py-2 bg-avenida-green text-white rounded hover:bg-green-600 transition-colors">
                 Nuevo Producto
@@ -17,13 +17,13 @@
                     <input type="text"
                            v-model="productosStore.filtros.busqueda"
                            class="w-full border rounded-md px-3 py-2"
-                           placeholder="Buscar por nombre o código...">
+                           placeholder="Buscar por nombre o cÃ³digo...">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CategorÃ­a</label>
                     <select v-model="productosStore.filtros.categoria"
                             class="w-full border rounded-md px-3 py-2">
-                        <option value="">Todas las categorías</option>
+                        <option value="">Todas las categorÃ­as</option>
                         <option v-for="cat in productosStore.categorias"
                                 :key="cat.categoria_id"
                                 :value="cat.categoria_id">
@@ -51,7 +51,7 @@
                         <tr>
                             <th @click="productosStore.ordenarPor('codigo')"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
-                                Código
+                                CÃ³digo
                             </th>
                             <th @click="productosStore.ordenarPor('nombre')"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
@@ -59,7 +59,7 @@
                             </th>
                             <th @click="productosStore.ordenarPor('categoria')"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
-                                Categoría
+                                CategorÃ­a
                             </th>
                             <th @click="productosStore.ordenarPor('precio_venta')"
                                 class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
@@ -71,7 +71,7 @@
                             </th>
                             <th @click="productosStore.ordenarPor('stock_minimo')"
                                 class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
-                                Stock Mínimo
+                                Stock MÃ­nimo
                             </th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Estado

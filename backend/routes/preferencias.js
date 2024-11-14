@@ -37,7 +37,7 @@ router.post('/orden-secciones/:usuario_id', async (req, res) => {
                 );
             }
         } else {
-            // El c�digo existente para GRUPO
+            // El cÃ³digo existente para GRUPO
             const [existingPrefs] = await connection.query(
                 `SELECT preferencia_id 
                  FROM usuario_preferencias_orden 
@@ -83,7 +83,7 @@ router.post('/orden-secciones/:usuario_id', async (req, res) => {
     }
 });
 
-// Modificar tambi�n la ruta GET para cargar las preferencias
+// Modificar tambiÃ©n la ruta GET para cargar las preferencias
 router.get('/orden-secciones/:usuario_id', async (req, res) => {
     try {
         const { tipo } = req.query; // Agregar tipo como query parameter
