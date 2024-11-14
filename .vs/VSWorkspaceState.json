@@ -2,16 +2,15 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\config",
-    "\\backend\\controllers",
-    "\\backend\\middleware",
     "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
     "\\la-avenida\\src\\components",
-    "\\la-avenida\\src\\views",
+    "\\la-avenida\\src\\components\\pedidos",
+    "\\la-avenida\\src\\stores",
+    "\\la-avenida\\src\\utils",
     "\\la-avenida\\src\\views\\auth"
   ],
-  "SelectedNode": "\\backend\\server.js",
+  "SelectedNode": "\\backend\\routes\\users.js",
   "PreviewInSolutionExplorer": false
 }
