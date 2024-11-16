@@ -12,6 +12,7 @@ import NuevoPedido from '../components/pedidos/NuevoPedido.vue'
 import Login from '../views/auth/Login.vue'
 import Users from '../views/admin/Users.vue'
 import Sucursales from '../views/admin/Sucursales.vue'
+import axios from 'axios'
 
 const routes = [
     {
@@ -81,34 +82,89 @@ const router = createRouter({
     routes
 })
 
+const verifyToken = (token) => {
+    if (!token) return false;
+    try {
+        const decoded = jwtDecode(token);
+        const currentTime = Date.now() / 1000;
+
+        // Verificar si el token está expirado (8 horas)
+        if (decoded.exp && decoded.exp < currentTime) {
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error verificando token:', error);
+        return false;
+    }
+}
+
 // Guard de navegación mejorado
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
 
-    if (to.meta.requiresAuth && !token) {
-        next('/login')
-        return
-    }
-
-    if (to.meta.requiresAdmin && token) {
-        try {
-            const decoded = jwtDecode(token)
-            if (decoded.rol !== 'ADMIN' && decoded.rol !== 'DUEÑO') {
-                next('/')
-                return
-            }
-        } catch (error) {
+    // Si la ruta requiere autenticación
+    if (to.meta.requiresAuth) {
+        if (!token || !verifyToken(token)) {
+            localStorage.removeItem('token')
             next('/login')
             return
         }
-    }
 
-    if (to.path === '/login' && token) {
+        // Si la ruta requiere rol de admin
+        if (to.meta.requiresAdmin) {
+            try {
+                const decoded = jwtDecode(token)
+                if (decoded.rol !== 'ADMIN' && decoded.rol !== 'DUEÑO') {
+                    next('/')
+                    return
+                }
+            } catch (error) {
+                console.error('Error verificando rol:', error)
+                next('/login')
+                return
+            }
+        }
+
+        next()
+    } else if (to.path === '/login' && token && verifyToken(token)) {
+        // Si intenta acceder al login con un token válido
         next('/')
-        return
+    } else {
+        next()
     }
-
-    next()
 })
+
+// Configuración global de axios
+axios.defaults.baseURL = 'http://localhost:3000'
+
+// Interceptor para agregar el token a todas las peticiones
+axios.interceptors.request.use(
+    config => {
+        const token = localStorage.getItem('token')
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }
+        return config
+    },
+    error => {
+        return Promise.reject(error)
+    }
+)
+
+// Interceptor para manejar errores de respuesta
+axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            localStorage.removeItem('token')
+            if (router.currentRoute.value.path !== '/login') {
+                window.location.href = '/login'
+            }
+        }
+        return Promise.reject(error)
+    }
+)
 
 export default router

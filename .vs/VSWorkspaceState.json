@@ -5,12 +5,12 @@
     "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
+    "\\la-avenida\\src\\assets",
     "\\la-avenida\\src\\components",
+    "\\la-avenida\\src\\components\\calendario",
     "\\la-avenida\\src\\components\\pedidos",
-    "\\la-avenida\\src\\stores",
-    "\\la-avenida\\src\\utils",
-    "\\la-avenida\\src\\views\\auth"
+    "\\la-avenida\\src\\router"
   ],
-  "SelectedNode": "\\backend\\routes\\users.js",
+  "SelectedNode": "\\la-avenida\\src\\components\\calendario\\NuevoEvento.vue",
   "PreviewInSolutionExplorer": false
 }

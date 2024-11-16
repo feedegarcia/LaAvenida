@@ -73,7 +73,7 @@
 
             <!-- Widget del Clima -->
             <WeatherWidget v-if="fechaSeleccionada"
-                           :fecha-pedido="fechaSeleccionada" />
+                           :fecha-pedido="normalizarFecha(fechaSeleccionada)" />
         </div>
 
         <!-- Selector de Sucursal -->
@@ -239,7 +239,7 @@
     axios.defaults.baseURL = 'http://localhost:3000'
     const eventosStore = useEventosStore()
     const currentDate = ref(new Date())
-    const fechaSeleccionada = ref(obtenerProximaFechaEntrega())
+    const fechaSeleccionada = ref(new Date(obtenerProximaFechaEntrega()));
 
     // Función para obtener la próxima fecha de entrega (miércoles o sábado)
     function obtenerProximaFechaEntrega() {
@@ -253,14 +253,13 @@
 
         while (true) {
             const dia = fecha.getDay()
-            // Si es miércoles (3) o sábado (6)
             if (dia === 3 || dia === 6) {
                 break
             }
             fecha.setDate(fecha.getDate() + 1)
         }
 
-        return fecha
+        return fecha;
     }
 
     // Computed para los días del mes actual
@@ -306,8 +305,13 @@
     }
 
     const esFechaSeleccionada = (fecha) => {
-        return fechaSeleccionada.value?.toDateString() === fecha.toDateString()
-    }
+        if (!fechaSeleccionada.value) return false;
+        const fecha1 = new Date(fecha);
+        const fecha2 = new Date(fechaSeleccionada.value);
+        fecha1.setHours(0, 0, 0, 0);
+        fecha2.setHours(0, 0, 0, 0);
+        return fecha1.getTime() === fecha2.getTime();
+    };
 
     const esProximaEntrega = (fecha) => {
         const dia = fecha.getDay()
@@ -319,12 +323,11 @@
         return fecha >= hoy
     }
 
-    const seleccionarFecha = (fecha) => {
-        if (!esFechaValida(fecha)) return
-
-        fechaSeleccionada.value = fecha
-        pedido.value.fecha_entrega_requerida = fecha.toISOString().split('T')[0]
-    }
+    const seleccionarFecha = (date) => {
+        const fechaNormalizada = new Date(date);
+        fechaNormalizada.setHours(0, 0, 0, 0);
+        fechaSeleccionada.value = fechaNormalizada;
+    };
 
     // Inicialización
     onMounted(async () => {
@@ -438,6 +441,13 @@
             console.error('Error al guardar el orden:', error)
         }
     }
+
+    const normalizarFecha = (fecha) => {
+        if (!fecha) return null;
+        const date = new Date(fecha);
+        date.setHours(0, 0, 0, 0); // Resetea la hora a medianoche
+        return date;
+    };
 
     // Funciones de carga
     const cargarPreferencias = async () => {

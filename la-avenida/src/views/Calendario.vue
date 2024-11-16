@@ -2,7 +2,7 @@
     <div>
         <CalendarioMejorado />
     </div>
-   
+
 </template>
 
 <script setup>

@@ -1,54 +1,89 @@
 ﻿<template>
     <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
-        <h3 class="text-lg font-semibold mb-4">Pronóstico para el período</h3>
-
-        <div class="grid grid-cols-5 gap-4">
-            <div v-for="(dia, index) in diasPronostico"
-                 :key="index"
-                 :class="[
-                    'text-center p-3 border rounded-lg',
-                    dia.esDiaPedido ? 'border-2 border-emerald-500 bg-emerald-50' : ''
-                 ]">
-                <p :class="[
-                    'text-sm mb-2',
-                    dia.esDiaPedido ? 'font-semibold text-emerald-700' : 'text-gray-600'
-                ]">
-                    {{ formatearFecha(dia.fecha) }}
-                </p>
-
-                <component :is="obtenerIconoClima(dia.clima)"
-                           class="w-8 h-8 mx-auto"
-                           :class="obtenerColorIcono(dia.clima)" />
-
-                <div class="mt-2">
-                    <p class="text-sm">{{ Math.round(dia.tempMax) }}° max</p>
-                    <p class="text-sm text-gray-600">{{ Math.round(dia.tempMin) }}° min</p>
-                </div>
-
-                <div class="mt-1 text-xs text-gray-500">
-                    <p>Prob. lluvia: {{ dia.probLluvia }}%</p>
-                </div>
-
-                <template v-if="dia.esDiaPedido">
-                    <p class="text-xs text-emerald-700 mt-1">Día del pedido</p>
-                </template>
-            </div>
+        <!-- Loading state -->
+        <div v-if="loading" class="flex items-center justify-center h-32">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
         </div>
+
+        <!-- Error state -->
+        <div v-else-if="error" class="text-red-500 text-center p-4">
+            <p>{{ error }}</p>
+            <button @click="cargarPronostico"
+                    class="mt-2 text-sm text-emerald-600 hover:text-emerald-700">
+                Intentar nuevamente
+            </button>
+        </div>
+
+        <!-- Contenido principal -->
+        <template v-else>
+            <h3 class="text-lg font-semibold mb-4">
+                Pronóstico del tiempo en Haedo
+                <span class="text-xs text-gray-500">(Lat: {{ LAT }}, Lon: {{ LON }})</span>
+            </h3>
+
+            <div class="grid grid-cols-5 gap-4">
+                <div v-for="(dia, index) in diasPronostico"
+                     :key="index"
+                     :class="[
+                        'text-center p-3 border rounded-lg',
+                        dia.esDiaPedido ? 'border-2 border-emerald-500 bg-emerald-50' : ''
+                     ]">
+                    <p :class="[
+                        'text-sm mb-2',
+                        dia.esDiaPedido ? 'font-semibold text-emerald-700' : 'text-gray-600'
+                    ]">
+                        {{ formatearFecha(dia.fecha) }}
+                    </p>
+
+                    <component :is="obtenerIconoClima(dia.clima)"
+                               class="w-8 h-8 mx-auto"
+                               :class="obtenerColorIcono(dia.clima)" />
+
+                    <div class="mt-2">
+                        <p class="text-sm">{{ Math.round(dia.tempMax) }}° max</p>
+                        <p class="text-sm text-gray-600">{{ Math.round(dia.tempMin) }}° min</p>
+                    </div>
+
+                    <div class="mt-1 text-xs text-gray-500">
+                        <p>Prob. lluvia: {{ dia.probLluvia }}%</p>
+                    </div>
+
+                    <template v-if="dia.esDiaPedido">
+                        <p class="text-xs text-emerald-700 mt-1">Día del pedido</p>
+                    </template>
+                </div>
+            </div>
+        </template>
     </div>
 </template>
-
 <script setup>
     import { ref, computed, onMounted, watch } from 'vue';
     import { Cloud, Sun, CloudRain, CloudLightning, CloudDrizzle } from 'lucide-vue-next';
 
-    // Coordenadas de Haedo
-    const LAT = -34.6457;
-    const LON = -58.5931;
+    const debounce = (fn, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn(...args), delay);
+        };
+    };
+
+    // Coordenadas exactas de Haedo
+    const LAT = -34.6021;
+    const LON = -58.5915;
 
     const props = defineProps({
         fechaPedido: {
             type: [Date, String],
-            required: true
+            required: true,
+            validator: (value) => {
+                try {
+                    const date = value instanceof Date ? value : new Date(value);
+                    return !isNaN(date.getTime());
+                } catch {
+                    return false;
+                }
+            }
         }
     });
 
@@ -56,10 +91,43 @@
     const loading = ref(false);
     const error = ref(null);
 
+    // Sistema de caché mejorado
+    const getCacheKey = (fecha) => {
+        const date = fecha instanceof Date ? fecha : new Date(fecha);
+        return `forecast-${date.toISOString().split('T')[0]}`;
+    };
+    const checkCache = (key) => {
+        const cached = localStorage.getItem(key);
+        if (!cached) return null;
+
+        const { data, timestamp } = JSON.parse(cached);
+        // Expirar el caché después de 3 horas
+        if (Date.now() - timestamp > 3 * 60 * 60 * 1000) {
+            localStorage.removeItem(key);
+            return null;
+        }
+
+        return data;
+    };
+
+    const setCache = (key, data) => {
+        localStorage.setItem(key, JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
+    };
     const diasPronostico = computed(() => {
         if (!props.fechaPedido || !pronostico.value.length) return [];
 
-        const fechaBase = new Date(props.fechaPedido);
+        const fechaPedidoObj = props.fechaPedido instanceof Date ?
+            props.fechaPedido :
+            new Date(props.fechaPedido);
+
+        // Asegurarse de que la fecha sea válida
+        if (isNaN(fechaPedidoObj.getTime())) return [];
+
+        const fechaBase = new Date(fechaPedidoObj);
+        fechaBase.setHours(0, 0, 0, 0); // Resetear la hora a medianoche
         fechaBase.setDate(fechaBase.getDate() - 2);
 
         return Array.from({ length: 5 }).map((_, index) => {
@@ -70,10 +138,10 @@
 
             return {
                 fecha,
-                esDiaPedido: fecha.toDateString() === new Date(props.fechaPedido).toDateString(),
-                tempMax: pronosticoDia.temperature_2m_max,
-                tempMin: pronosticoDia.temperature_2m_min,
-                probLluvia: pronosticoDia.precipitation_probability_max,
+                esDiaPedido: fecha.toDateString() === fechaPedidoObj.toDateString(),
+                tempMax: pronosticoDia.temperature_2m_max || 0,
+                tempMin: pronosticoDia.temperature_2m_min || 0,
+                probLluvia: pronosticoDia.precipitation_probability_max || 0,
                 clima: obtenerCondicionClima(
                     pronosticoDia.precipitation_probability_max,
                     pronosticoDia.weathercode
@@ -130,36 +198,67 @@
             loading.value = true;
             error.value = null;
 
+            const cacheKey = getCacheKey(props.fechaPedido);
+            const cachedData = checkCache(cacheKey);
+
+            if (cachedData) {
+                pronostico.value = cachedData;
+                return;
+            }
+
             const response = await fetch(
                 `https://api.open-meteo.com/v1/forecast?` +
                 `latitude=${LAT}&longitude=${LON}` +
                 `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
-                `&timezone=America/Argentina/Buenos_Aires`
+                `&timezone=America/Argentina/Buenos_Aires` +
+                `&forecast_days=7`
             );
 
-            if (!response.ok) throw new Error('Error al cargar el pronóstico');
+            if (!response.ok) {
+                throw new Error('Error al cargar el pronóstico');
+            }
 
             const data = await response.json();
-            // Convertir los datos a nuestro formato
-            pronostico.value = data.daily.time.map((fecha, index) => ({
+
+            if (!data.daily || !Array.isArray(data.daily.time)) {
+                throw new Error('Formato de datos inválido');
+            }
+
+            const formattedData = data.daily.time.map((fecha, index) => ({
                 temperature_2m_max: data.daily.temperature_2m_max[index],
                 temperature_2m_min: data.daily.temperature_2m_min[index],
                 precipitation_probability_max: data.daily.precipitation_probability_max[index],
                 weathercode: data.daily.weathercode[index]
             }));
+
+            // Guardar en caché
+            setCache(cacheKey, formattedData);
+            pronostico.value = formattedData;
         } catch (err) {
-            error.value = 'Error al cargar el pronóstico';
-            console.error('Error:', err);
+            error.value = 'No se pudo cargar el pronóstico del tiempo';
+            console.error('Error en cargarPronostico:', err);
         } finally {
             loading.value = false;
         }
     };
 
-    watch(() => props.fechaPedido, () => {
-        if (props.fechaPedido) cargarPronostico();
-    });
+    // Observar cambios en fechaPedido y recargar datos cuando sea necesario
+    watch(() => props.fechaPedido,
+        debounce((newDate) => {
+            if (!newDate) return;
 
+            const fecha = new Date(newDate);
+            fecha.setHours(0, 0, 0, 0);
+            console.log('Fecha normalizada:', fecha.toISOString());
+            cargarPronostico();
+        }, 300),
+        { immediate: true }
+    );
+
+    // Cargar datos iniciales al montar el componente
     onMounted(() => {
-        if (props.fechaPedido) cargarPronostico();
+        if (props.fechaPedido) {
+            cargarPronostico();
+        }
     });
 </script>

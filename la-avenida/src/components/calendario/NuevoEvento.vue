@@ -46,7 +46,7 @@
                         </div>
 
                         <!-- Fechas -->
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Fecha Inicio
@@ -54,16 +54,28 @@
                                 <input type="date"
                                        v-model="eventForm.fecha_inicio"
                                        required
-                                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-avenida-green focus:ring-avenida-green">
+                                       class="w-full rounded-md border-gray-300 shadow-sm">
                             </div>
-                            <div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox"
+                                       id="multipleDays"
+                                       v-model="isMultipleDays"
+                                       class="rounded border-gray-300 text-emerald-500">
+                                <label for="multipleDays" class="ml-2 text-sm text-gray-600">
+                                    Evento de múltiples días
+                                </label>
+                            </div>
+
+                            <div v-if="isMultipleDays">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Fecha Fin
                                 </label>
                                 <input type="date"
                                        v-model="eventForm.fecha_fin"
+                                       :min="eventForm.fecha_inicio"
                                        required
-                                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-avenida-green focus:ring-avenida-green">
+                                       class="w-full rounded-md border-gray-300 shadow-sm">
                             </div>
                         </div>
 
@@ -107,6 +119,7 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import TipoEventoModal from './TipoEventoModal.vue'
 
+const isMultipleDays = ref(false);
 const props = defineProps({
   show: Boolean
 })
@@ -145,7 +158,26 @@ const saveTipoEvento = async (tipo) => {
   }
 }
 
-const saveEvent = () => {
-  emit('save', { ...eventForm.value })
-}
+    const saveEvent = async () => {
+        try {
+            const eventoData = {
+                nombre: eventForm.value.nombre,
+                tipo_id: eventForm.value.tipo_id,
+                fecha_inicio: eventForm.value.fecha_inicio,
+                fecha_fin: isMultipleDays.value ? eventForm.value.fecha_fin : eventForm.value.fecha_inicio,
+                descripcion: eventForm.value.descripcion
+            };
+
+            await axios.post('/api/eventos', eventoData, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            await cargarEventos();
+            closeModal();
+        } catch (error) {
+            console.error('Error al guardar evento:', error);
+        }
+    };
 </script>

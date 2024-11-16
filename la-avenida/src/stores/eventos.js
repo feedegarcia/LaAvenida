@@ -4,9 +4,9 @@ import axios from 'axios';
 export const useEventosStore = defineStore('eventos', {
     state: () => ({
         eventos: [],
-        feriados: [],
         loading: false,
-        error: null
+        error: null,
+        lastUpdate: null
     }),
 
     getters: {
@@ -19,16 +19,8 @@ export const useEventosStore = defineStore('eventos', {
             });
         },
 
-        feriadosPorFecha: (state) => (fecha) => {
-            const fechaObj = new Date(fecha);
-            return state.feriados.filter(feriado => {
-                const feriadoFecha = new Date(feriado.fecha);
-                return feriadoFecha.toDateString() === fechaObj.toDateString();
-            });
-        },
-
         tieneEventos: (state) => (fecha) => {
-            return state.eventosPorFecha(fecha).length > 0 || state.feriadosPorFecha(fecha).length > 0;
+            return state.eventosPorFecha(fecha).length > 0;
         }
     },
 
@@ -36,12 +28,13 @@ export const useEventosStore = defineStore('eventos', {
         async cargarEventos() {
             try {
                 this.loading = true;
-                const response = await axios.get('http://localhost:3000/api/eventos', {
+                const response = await axios.get('/api/eventos', {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
                 this.eventos = response.data;
+                this.lastUpdate = new Date();
             } catch (error) {
                 this.error = 'Error al cargar eventos';
                 console.error('Error:', error);
@@ -50,28 +43,8 @@ export const useEventosStore = defineStore('eventos', {
             }
         },
 
-        async cargarFeriados() {
-            try {
-                this.loading = true;
-                const response = await axios.get('http://localhost:3000/api/feriados', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                this.feriados = response.data;
-            } catch (error) {
-                this.error = 'Error al cargar feriados';
-                console.error('Error:', error);
-            } finally {
-                this.loading = false;
-            }
-        },
-
         async inicializar() {
-            await Promise.all([
-                this.cargarEventos(),
-                this.cargarFeriados()
-            ]);
+            await this.cargarEventos();
         }
     }
 });
