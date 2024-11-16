@@ -71,8 +71,7 @@ router.post('/:id/solicitud-modificacion', async (req, res) => {
         connection.release();
     }
 });
-
-// Obtener detalle de un pedido especÃ­fico
+// Obtener detalle de un pedido específico
 router.get('/:id', async (req, res) => {
     try {
         const [pedido] = await pool.query(`
@@ -94,10 +93,17 @@ router.get('/:id', async (req, res) => {
             SELECT 
                 dp.*,
                 pr.nombre as producto_nombre,
-                pr.codigo as producto_codigo
+                pr.codigo as producto_codigo,
+                cp.nombre as categoria_nombre,
+                cp.categoria_id,
+                sp.nombre as subcategoria_nombre,
+                sp.subcategoria_id
             FROM detalle_pedido dp
             JOIN producto pr ON dp.producto_id = pr.producto_id
+            JOIN subcategoria_producto sp ON pr.subcategoria_id = sp.subcategoria_id
+            JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
             WHERE dp.pedido_id = ?
+            ORDER BY cp.nombre, sp.nombre, pr.nombre
         `, [req.params.id]);
 
         res.json({

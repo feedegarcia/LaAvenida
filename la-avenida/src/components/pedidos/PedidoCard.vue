@@ -1,8 +1,7 @@
-﻿
+﻿<!-- components/pedidos/PedidoCard.vue -->
 <template>
     <div class="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
-         :class="{ 'border-2 border-orange-400 bg-orange-50': highlight }"
-         @click="$emit('click')">
+         @click="verDetalle">
         <div class="flex justify-between items-start mb-2">
             <div>
                 <span class="text-sm font-medium">#{{ pedido.pedido_id }}</span>
@@ -13,10 +12,7 @@
                     Modificación pendiente
                 </span>
             </div>
-            <span class="px-2 py-1 text-xs rounded-full"
-                  :class="estadoClasses">
-                {{ pedido.estado }}
-            </span>
+            <EstadoPedido :estado="pedido.estado" />
         </div>
 
         <div class="text-sm text-gray-600 space-y-1">
@@ -41,8 +37,12 @@
 </template>
 
 <script setup>
-    import { computed } from 'vue'
-    import { jwtDecode } from 'jwt-decode'
+    import { computed } from 'vue';
+    import { useRouter } from 'vue-router';
+    import { jwtDecode } from 'jwt-decode';
+    import EstadoPedido from './EstadoPedido.vue';
+
+    const router = useRouter();
 
     const props = defineProps({
         pedido: {
@@ -53,39 +53,36 @@
             type: Boolean,
             default: false
         }
-    })
+    });
 
     // Obtener rol del usuario del token
     const userRole = computed(() => {
-        const token = localStorage.getItem('token')
-        if (!token) return null
-        const decoded = jwtDecode(token)
-        return decoded.rol
-    })
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        const decoded = jwtDecode(token);
+        return decoded.rol;
+    });
 
     const esRolAdministrativo = computed(() =>
         userRole.value === 'ADMIN' || userRole.value === 'DUEÑO'
-    )
-
-    const estadoClasses = computed(() => ({
-        'bg-yellow-100 text-yellow-800': props.pedido.estado === 'PENDIENTE',
-        'bg-blue-100 text-blue-800': props.pedido.estado === 'CONFIRMADO',
-        'bg-orange-100 text-orange-800': props.pedido.estado === 'MODIFICADO',
-        'bg-green-100 text-green-800': props.pedido.estado === 'ENTREGADO'
-    }))
+    );
 
     const formatoFecha = (fecha) => {
         return new Date(fecha).toLocaleDateString('es-AR', {
             day: '2-digit',
             month: '2-digit',
             year: '2-digit'
-        })
-    }
+        });
+    };
 
     const formatoMoneda = (valor) => {
         return new Intl.NumberFormat('es-AR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
-        }).format(valor)
-    }
+        }).format(valor);
+    };
+
+    const verDetalle = () => {
+        router.push(`/pedidos/${props.pedido.pedido_id}`);
+    };
 </script>

@@ -1,8 +1,16 @@
-﻿
+﻿<!-- components/pedidos/TimelinePedido.vue -->
 <template>
-    <div class="p-4">
-        <!-- InformaciÃ³n principal del pedido -->
-        <div class="mb-6 grid grid-cols-2 gap-4">
+    <div v-if="loading" class="flex justify-center items-center p-8">
+        <span>Cargando...</span>
+    </div>
+
+    <div v-else-if="error" class="text-red-600 p-8">
+        {{ error }}
+    </div>
+
+    <div v-else class="max-w-4xl mx-auto p-4">
+        <!-- Información principal del pedido -->
+        <div class="bg-white rounded-lg shadow-lg p-4 mb-6 grid md:grid-cols-2 gap-4">
             <div class="space-y-2">
                 <div>
                     <span class="text-sm text-gray-500">Origen:</span>
@@ -16,7 +24,7 @@
             <div class="space-y-2">
                 <div>
                     <span class="text-sm text-gray-500">Fecha Pedido:</span>
-                    <p class="font-medium">{{ formatoFecha(pedido.fecha_pedido) }}</p>
+                    <p class="font-medium">{{ formatoFechaCompleta(pedido.fecha_pedido) }}</p>
                 </div>
                 <div>
                     <span class="text-sm text-gray-500">Fecha Entrega:</span>
@@ -29,353 +37,452 @@
         <div class="relative">
             <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
-            <div class="space-y-6 ml-12 relative">
+            <div class="space-y-6">
                 <!-- Estado actual -->
                 <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
-                        <div :class="{
-                            'w-5 h-5 rounded-full border-2 border-white shadow': true,
-                            'bg-gray-400': pedido.estado === 'BORRADOR',
-                            'bg-blue-400': pedido.estado === 'EN_FABRICA',
-                            'bg-orange-400': pedido.estado === 'PREPARADO_MODIFICADO',
-                            'bg-yellow-400': pedido.estado === 'RECIBIDO_CON_DIFERENCIAS',
-                            'bg-green-400': pedido.estado === 'RECIBIDO',
-                            'bg-red-400': pedido.estado === 'CANCELADO'
-                        }"></div>
+                        <div :class="[
+              'w-5 h-5 rounded-full border-2 border-white shadow',
+              estadoClasses[pedido.estado]
+            ]"></div>
                     </div>
                     <div class="bg-white rounded-lg border p-4">
                         <div class="flex justify-between items-start mb-2">
                             <div>
                                 <h4 class="font-medium">Estado Actual: {{ pedido.estado }}</h4>
                                 <p class="text-sm text-gray-500">
-                                    {{ formatoFechaCompleta(pedido.fecha_pedido) }}
+                                    {{ formatoFechaCompleta(pedido.fecha_ultima_actualizacion || pedido.fecha_pedido) }}
                                 </p>
                             </div>
                             <EstadoPedido :estado="pedido.estado" />
                         </div>
 
-                        <!-- Mostrar informaciÃ³n de cancelaciÃ³n si estÃ¡ cancelado -->
+                        <!-- Mostrar información de cancelación si está cancelado -->
                         <div v-if="pedido.estado === 'CANCELADO'" class="mt-2 text-sm text-red-600">
                             <p><strong>Cancelado por:</strong> {{ pedido.cancelado_por }}</p>
                             <p><strong>Motivo:</strong> {{ pedido.motivo_cancelacion }}</p>
                             <p><strong>Fecha:</strong> {{ formatoFechaCompleta(pedido.fecha_cancelacion) }}</p>
                         </div>
 
-                        <!-- Acciones disponibles segÃºn estado -->
-                        <div v-if="pedido.estado !== 'RECIBIDO' && pedido.estado !== 'CANCELADO'" class="mt-4 space-x-2">
-                            <button v-if="pedido.estado === 'BORRADOR'"
-                                    @click="confirmarPedido"
-                                    class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
-                                Confirmar
-                            </button>
-
-                            <button v-if="['EN_FABRICA', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"
-                                    @click="marcarEntregado"
-                                    class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
-                                Marcar Entregado
-                            </button>
-
-                            <button v-if="pedido.estado !== 'BORRADOR'"
-                                    @click="modificarPedido"
-                                    class="px-3 py-1 bg-orange-500 text-white text-sm rounded hover:bg-orange-600">
-                                Modificar
-                            </button>
-
-                            <!-- BotÃ³n de cancelaciÃ³n -->
-                            <button v-if="puedeCancelar"
-                                    @click="mostrarModalCancelacion"
-                                    class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
-                                Cancelar Pedido
+                        <!-- Acciones disponibles según estado -->
+                        <div v-if="accionesDisponibles.length > 0" class="mt-4 space-x-2">
+                            <button v-for="accion in accionesDisponibles"
+                                    :key="accion.tipo"
+                                    @click="ejecutarAccion(accion.tipo)"
+                                    :class="[
+                        'px-4 py-2 rounded-lg text-white',
+                        accion.clase
+                      ]">
+                                {{ accion.texto }}
                             </button>
                         </div>
                     </div>
                 </div>
-                <!--  Solicitudes de modificaciÃ³n -->>
-                <div v-if="pedido.tiene_solicitud_pendiente" class="relative">
-                    <div class="absolute -left-[2.85rem] mt-1.5">
-                        <div class="w-5 h-5 rounded-full bg-orange-400 border-2 border-white shadow"></div>
-                    </div>
-                    <div class="bg-white rounded-lg border border-orange-200 p-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <h4 class="font-medium text-orange-800">Solicitud de ModificaciÃ³n Pendiente</h4>
-                            <span class="text-sm text-gray-500">
-                                {{ formatoFechaCompleta(solicitud?.fecha_solicitud) }}
-                            </span>
-                        </div>
 
-                        <!-- Lista de cambios solicitados -->
-                        <div class="mt-4 space-y-3">
-                            <div v-for="cambio in solicitud?.cambios"
-                                 :key="cambio.detalle_id"
-                                 class="flex justify-between items-center p-2 bg-orange-50 rounded">
-                                <div>
-                                    <span class="font-medium">{{ cambio.producto_nombre }}</span>
-                                    <div class="text-sm text-gray-600">
-                                        Cantidad actual: {{ cambio.cantidad_anterior }} >
-                                        <span class="text-orange-600 font-medium">
-                                            {{ cambio.cantidad_nueva }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notas de la solicitud -->
-                        <div v-if="solicitud?.notas" class="mt-3 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                            <p class="font-medium">Notas:</p>
-                            <p>{{ solicitud.notas }}</p>
-                        </div>
-
-                        <!-- Acciones -->
-                        <div v-if="puedeAprobarSolicitud" class="mt-4 flex justify-end space-x-3">
-                            <button @click="responderSolicitud('RECHAZADA')"
-                                    class="px-3 py-1.5 border border-red-300 text-red-600 text-sm rounded hover:bg-red-50">
-                                Rechazar
-                            </button>
-                            <button @click="responderSolicitud('APROBADA')"
-                                    class="px-3 py-1.5 bg-green-500 text-white text-sm rounded hover:bg-green-600">
-                                Aprobar Cambios
-                            </button>
-                        </div>
-                    </div>
-                </div>
                 <!-- Detalles del pedido -->
+                <!-- Reemplazar la sección de detalles del pedido -->
                 <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
                         <div class="w-5 h-5 rounded-full bg-gray-300 border-2 border-white shadow"></div>
                     </div>
                     <div class="bg-white rounded-lg border p-4">
-                        <h4 class="font-medium mb-3">Detalles del Pedido</h4>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead>
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    <tr v-for="detalle in pedido.detalles" :key="detalle.detalle_id">
-                                        <td class="px-3 py-2 text-sm">{{ detalle.producto_nombre }}</td>
-                                        <td class="px-3 py-2 text-sm text-right">
-                                            {{ detalle.cantidad_solicitada }}
-                                            <span v-if="detalle.cantidad_confirmada && detalle.cantidad_confirmada !== detalle.cantidad_solicitada"
-                                                  class="text-xs text-orange-600">
-                                                ({{ detalle.cantidad_confirmada }} conf.)
-                                            </span>
-                                        </td>
-                                        <td class="px-3 py-2 text-sm text-right">
-                                            $ {{ formatoMoneda(detalle.precio_unitario) }}
-                                        </td>
-                                        <td class="px-3 py-2 text-sm text-right">
-                                            $ {{ formatoMoneda(detalle.cantidad_solicitada * detalle.precio_unitario) }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="3" class="px-3 py-2 text-right font-medium">Total:</td>
-                                        <td class="px-3 py-2 text-right font-medium">
-                                            $ {{ formatoMoneda(pedido.total) }}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <h4 class="font-medium mb-4">Detalles del Pedido</h4>
+
+                        <!-- Productos agrupados por categoría -->
+                        <div class="space-y-6">
+                            <template v-for="(productosPorSubcategoria, categoria) in productosAgrupados" :key="categoria">
+                                <div class="border rounded-lg overflow-hidden">
+                                    <!-- Header de categoría -->
+                                    <div class="bg-gray-50 px-4 py-2 font-medium text-gray-700">
+                                        {{ categoria }}
+                                    </div>
+
+                                    <!-- Subcategorías -->
+                                    <div v-for="(productos, subcategoria) in productosPorSubcategoria"
+                                         :key="subcategoria"
+                                         class="border-t">
+                                        <!-- Header de subcategoría -->
+                                        <div class="bg-gray-100/50 px-4 py-1.5 text-sm font-medium text-gray-600">
+                                            {{ subcategoria }}
+                                        </div>
+
+                                        <!-- Tabla de productos -->
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full divide-y divide-gray-200">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                                                        <th v-if="esRolAdministrativo" class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
+                                                        <th v-if="esRolAdministrativo" class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-200">
+                                                    <tr v-for="detalle in productos"
+                                                        :key="detalle.detalle_id"
+                                                        :class="{ 'bg-yellow-50': detalle.modificado }">
+                                                        <td class="px-3 py-2 text-sm">
+                                                            {{ detalle.producto_nombre }}
+                                                            <span v-if="detalle.modificado"
+                                                                  class="ml-2 text-xs text-orange-600">
+                                                                (Modificado)
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-3 py-2 text-sm text-right whitespace-nowrap">
+                                                            {{ detalle.cantidad_solicitada }}
+                                                            <span v-if="detalle.cantidad_confirmada && detalle.cantidad_confirmada !== detalle.cantidad_solicitada"
+                                                                  class="text-xs text-orange-600 ml-1">
+                                                                ({{ detalle.cantidad_confirmada }} conf.)
+                                                            </span>
+                                                        </td>
+                                                        <td v-if="esRolAdministrativo" class="px-3 py-2 text-sm text-right">
+                                                            $ {{ formatoMoneda(detalle.precio_unitario) }}
+                                                        </td>
+                                                        <td v-if="esRolAdministrativo" class="px-3 py-2 text-sm text-right">
+                                                            $ {{ formatoMoneda(detalle.cantidad_solicitada * detalle.precio_unitario) }}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                                <!-- Subtotal por subcategoría -->
+                                                <tfoot v-if="esRolAdministrativo">
+                                                    <tr class="bg-gray-50">
+                                                        <td colspan="3" class="px-3 py-2 text-sm text-right font-medium">
+                                                            Subtotal {{ subcategoria }}:
+                                                        </td>
+                                                        <td class="px-3 py-2 text-sm text-right font-medium">
+                                                            $ {{ formatoMoneda(calcularSubtotalGrupo(productos)) }}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- Subtotal por categoría -->
+                                    <div v-if="esRolAdministrativo" class="bg-gray-50 px-4 py-2 text-right">
+                                        <span class="font-medium">
+                                            Total {{ categoria }}: $ {{ formatoMoneda(calcularSubtotalCategoria(productosPorSubcategoria)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Total general -->
+                        <div v-if="esRolAdministrativo" class="mt-6 pt-4 border-t flex justify-end">
+                            <div class="text-right">
+                                <span class="text-lg font-medium">
+                                    Total del Pedido: $ {{ formatoMoneda(calcularTotal()) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Notas -->
-                <div v-if="pedido.notas" class="relative">
+                <!-- Total general -->
+                <div class="mt-4 border-t pt-4 flex justify-end">
+                    <div class="text-right">
+                        <span class="text-gray-600">Total del Pedido:</span>
+                        <span class="ml-2 text-lg font-medium">
+                            $ {{ formatoMoneda(pedido.total || calcularTotal()) }}
+                        </span>
+                    </div>
+                </div>
+                <!-- Sistema de notas -->
+                <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
                         <div class="w-5 h-5 rounded-full bg-gray-300 border-2 border-white shadow"></div>
                     </div>
                     <div class="bg-white rounded-lg border p-4">
-                        <h4 class="font-medium mb-2">Notas</h4>
-                        <p class="text-sm text-gray-600">{{ pedido.notas }}</p>
+                        <h4 class="font-medium mb-3">Notas</h4>
+                        <!-- Historial de notas -->
+                        <div v-if="pedido.notas" class="space-y-4 mb-4">
+                            <div v-for="nota in pedido.notas" :key="nota.id" class="bg-gray-50 p-3 rounded">
+                                <div class="flex justify-between text-sm text-gray-500 mb-1">
+                                    <span>{{ formatoFechaCompleta(nota.fecha) }}</span>
+                                    <span>{{ nota.sucursal }} - {{ nota.usuario }}</span>
+                                </div>
+                                <p>{{ nota.texto }}</p>
+                            </div>
+                        </div>
+                        <!-- Agregar nota -->
+                        <div v-if="puedeAgregarNotas" class="mt-4">
+                            <textarea v-model="nuevaNota"
+                                      rows="3"
+                                      class="w-full p-2 border rounded-lg resize-none focus:ring-2 focus:ring-emerald-500"
+                                      placeholder="Agregar una nota..."></textarea>
+                            <div class="flex justify-end mt-2">
+                                <button @click="agregarNota"
+                                        class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">
+                                    Agregar Nota
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Modal de CancelaciÃ³n -->
-        <CancelacionModal :show="showCancelacionModal"
-                          :pedido-id="pedido.pedido_id"
-                          @close="showCancelacionModal = false"
-                          @confirm="cancelarPedido" />
+        <!-- Modal de cancelación -->
+        <Dialog :open="showCancelModal" @close="showCancelModal = false">
+            <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <DialogPanel class="w-full max-w-md bg-white rounded-lg p-6">
+                    <h3 class="text-lg font-medium mb-4">¿Está seguro que desea cancelar este pedido?</h3>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Motivo de cancelación
+                        </label>
+                        <textarea v-model="motivoCancelacion"
+                                  rows="3"
+                                  class="w-full p-2 border rounded-lg resize-none"
+                                  required></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button @click="showCancelModal = false"
+                                class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button @click="confirmarCancelacion"
+                                class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                            Confirmar Cancelación
+                        </button>
+                    </div>
+                </DialogPanel>
+            </div>
+        </Dialog>
     </div>
 </template>
-
 <script setup>
-    import { ref, computed } from 'vue'
-    import EstadoPedido from './EstadoPedido.vue'
-    import CancelacionModal from './CancelacionModal.vue'
-    import axios from 'axios'
+    import { ref, computed, onMounted } from 'vue';
+    import { Dialog, DialogPanel } from '@headlessui/vue';
+    import { useAuthStore } from '@/stores/auth';
+    import EstadoPedido from './EstadoPedido.vue';
+    import axios from '@/utils/axios-config';
+    import { jwtDecode } from 'jwt-decode'; 
 
     const props = defineProps({
-        pedido: {
-            type: Object,
+        id: {
+            type: Number,
             required: true
         }
-    })
+    });
+    const esRolAdministrativo = computed(() => {
+        return ['ADMIN', 'DUEÑO'].includes(authStore.userRole);
+    });
 
-    const emit = defineEmits(['estadoActualizado'])
-    const showCancelacionModal = ref(false)
+    const emit = defineEmits(['actualizar']);
+    const authStore = useAuthStore();
 
-    const puedeCancelar = computed(() => {
-        return ['EN_FABRICA', 'PREPARADO_MODIFICADO', 'RECIBIDO_CON_DIFERENCIAS'].includes(props.pedido.estado)
-    })
+    // Estados locales
+    const pedido = ref(null);
+    const loading = ref(true);
+    const error = ref(null);
+    const showCancelModal = ref(false);
+    const motivoCancelacion = ref('');
+    const nuevaNota = ref('');
 
+    // Clases para estados
+    const estadoClasses = {
+        'BORRADOR': 'bg-gray-400',
+        'EN_FABRICA': 'bg-blue-400',
+        'EN_FABRICA_MODIFICADO': 'bg-orange-400',
+        'RECIBIDO': 'bg-green-400',
+        'RECIBIDO_CON_DIFERENCIAS': 'bg-yellow-400',
+        'FINALIZADO': 'bg-green-600',
+        'CANCELADO': 'bg-red-400'
+    };
+
+    // Computed
+    const accionesDisponibles = computed(() => {
+        const acciones = [];
+        if (!pedido.value) return acciones;
+
+        const { estado } = pedido.value;
+        const esFabrica = authStore.sucursalActual?.tipo === 'FABRICA_VENTA';
+        const esSucursalDestino = authStore.sucursalActual?.sucursal_id === pedido.value.sucursal_destino;
+
+        switch (estado) {
+            case 'BORRADOR':
+                acciones.push({
+                    tipo: 'confirmar',
+                    texto: 'Confirmar Pedido',
+                    clase: 'bg-emerald-500 hover:bg-emerald-600'
+                });
+                break;
+            case 'EN_FABRICA':
+                if (esFabrica) {
+                    acciones.push({
+                        tipo: 'preparar',
+                        texto: 'Marcar como Preparado',
+                        clase: 'bg-emerald-500 hover:bg-emerald-600'
+                    });
+                }
+                break;
+            case 'RECIBIDO':
+                if (esSucursalDestino) {
+                    acciones.push({
+                        tipo: 'confirmar_recepcion',
+                        texto: 'Confirmar Recepción',
+                        clase: 'bg-emerald-500 hover:bg-emerald-600'
+                    });
+                }
+                break;
+            case 'RECIBIDO_CON_DIFERENCIAS':
+                if (esFabrica) {
+                    acciones.push({
+                        tipo: 'confirmar_diferencias',
+                        texto: 'Confirmar Diferencias',
+                        clase: 'bg-emerald-500 hover:bg-emerald-600'
+                    });
+                }
+                break;
+        }
+
+        if (!['FINALIZADO', 'CANCELADO'].includes(estado)) {
+            acciones.push({
+                tipo: 'cancelar',
+                texto: 'Cancelar Pedido',
+                clase: 'bg-red-500 hover:bg-red-600'
+            });
+        }
+
+        return acciones;
+    });
+
+    const puedeAgregarNotas = computed(() => {
+        return pedido.value && !['FINALIZADO', 'CANCELADO'].includes(pedido.value.estado);
+    });
+
+    // Métodos de formateo
     const formatoFecha = (fecha) => {
-        return new Date(fecha).toLocaleDateString('es-AR')
-    }
+        return new Date(fecha).toLocaleDateString('es-AR');
+    };
 
     const formatoFechaCompleta = (fecha) => {
-        return new Date(fecha).toLocaleString('es-AR')
-    }
+        return new Date(fecha).toLocaleString('es-AR');
+    };
 
     const formatoMoneda = (valor) => {
-        return valor.toLocaleString('es-AR', {
+        return new Intl.NumberFormat('es-AR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
-        })
-    }
+        }).format(valor);
+    };
 
-    const confirmarPedido = async () => {
+    // Cálculo del total
+    const calcularTotal = () => {
+        if (!pedido.value?.detalles) return 0;
+        return pedido.value.detalles.reduce((total, detalle) => {
+            return total + (detalle.cantidad_solicitada * detalle.precio_unitario);
+        }, 0);
+    };
+    const productosAgrupados = computed(() => {
+        if (!pedido.value?.detalles) return {};
+
+        return pedido.value.detalles.reduce((grupos, detalle) => {
+            const categoria = detalle.categoria_nombre;
+            const subcategoria = detalle.subcategoria_nombre;
+
+            if (!grupos[categoria]) {
+                grupos[categoria] = {};
+            }
+            if (!grupos[categoria][subcategoria]) {
+                grupos[categoria][subcategoria] = [];
+            }
+
+            grupos[categoria][subcategoria].push(detalle);
+            return grupos;
+        }, {});
+    });
+    const calcularSubtotalGrupo = (productos) => {
+        return productos.reduce((total, detalle) => {
+            return total + (detalle.cantidad_solicitada * detalle.precio_unitario);
+        }, 0);
+    };
+
+    // Añadir este método
+    const calcularSubtotalCategoria = (subcategorias) => {
+        return Object.values(subcategorias).reduce((total, productos) => {
+            return total + calcularSubtotalGrupo(productos);
+        }, 0);
+    };
+
+    // Métodos de acción
+    const cargarPedido = async () => {
         try {
-            await axios.patch(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/estado`,
-                {
-                    estado: 'EN_FABRICA',
-                    detalles: props.pedido.detalles
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            emit('estadoActualizado')
-        } catch (error) {
-            console.error('Error al confirmar pedido:', error)
+            loading.value = true;
+            const response = await axios.get(`/api/pedidos/${props.id}`);
+            pedido.value = response.data;
+        } catch (err) {
+            error.value = 'Error al cargar el pedido';
+            console.error('Error cargando pedido:', err);
+        } finally {
+            loading.value = false;
         }
-    }
+    };
 
-    const marcarEntregado = async () => {
+    const ejecutarAccion = async (tipo) => {
+        switch (tipo) {
+            case 'cancelar':
+                showCancelModal.value = true;
+                break;
+            case 'confirmar':
+                await cambiarEstado('EN_FABRICA');
+                break;
+            case 'preparar':
+                await cambiarEstado('EN_FABRICA_MODIFICADO');
+                break;
+            case 'confirmar_recepcion':
+                await cambiarEstado('FINALIZADO');
+                break;
+            case 'confirmar_diferencias':
+                await cambiarEstado('FINALIZADO');
+                break;
+        }
+    };
+
+    const cambiarEstado = async (nuevoEstado) => {
         try {
-            await axios.patch(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/estado`,
-                {
-                    estado: 'RECIBIDO',
-                    detalles: props.pedido.detalles
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            emit('estadoActualizado')
+            await axios.patch(`/api/pedidos/${props.id}/estado`, {
+                estado: nuevoEstado
+            });
+            await cargarPedido();
         } catch (error) {
-            console.error('Error al marcar como entregado:', error)
+            console.error('Error al cambiar estado:', error);
         }
-    }
+    };
 
-    const modificarPedido = async () => {
+    const confirmarCancelacion = async () => {
         try {
-            await axios.patch(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/estado`,
-                {
-                    estado: 'PREPARADO_MODIFICADO',
-                    detalles: props.pedido.detalles
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            emit('estadoActualizado')
+            await axios.patch(`/api/pedidos/${props.id}/estado`, {
+                estado: 'CANCELADO',    
+                motivo: motivoCancelacion.value
+            });
+            await cargarPedido();
+            showCancelModal.value = false;
+            motivoCancelacion.value = '';
         } catch (error) {
-            console.error('Error al modificar pedido:', error)
+            console.error('Error al cancelar pedido:', error);
         }
-    }
+    };
 
-    // Agregar al setup
-    const solicitud = ref(null)
-    const puedeAprobarSolicitud = computed(() => {
-        // AquÃ­ puedes agregar lÃ³gica adicional segÃºn roles si es necesario
-        return ['EN_FABRICA', 'PREPARADO_MODIFICADO'].includes(props.pedido.estado)
-    })
+    const agregarNota = async () => {
+        if (!nuevaNota.value.trim()) return;
 
-    // Agregar mÃ©todo para cargar la solicitud
-    const cargarSolicitud = async () => {
         try {
-            const response = await axios.get(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/solicitudes`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            // Tomamos la primera solicitud pendiente si existe
-            solicitud.value = response.data.find(s => s.estado === 'PENDIENTE')
+            await axios.post(`/api/pedidos/${props.id}/notas`, {
+                texto: nuevaNota.value,
+                sucursal_id: authStore.sucursalActual.sucursal_id
+            });
+            nuevaNota.value = '';
+            await cargarPedido();
         } catch (error) {
-            console.error('Error cargando solicitud:', error)
+            console.error('Error al agregar nota:', error);
         }
-    }
+    };
 
-    // Agregar mÃ©todo para responder a la solicitud
-    const responderSolicitud = async (estado) => {
-        try {
-            await axios.patch(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/solicitudes/${solicitud.value.solicitud_id}`,
-                {
-                    estado,
-                    notas_respuesta: estado === 'RECHAZADA' ? 'Solicitud rechazada' : 'Cambios aprobados'
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            emit('estadoActualizado')
-        } catch (error) {
-            console.error('Error respondiendo solicitud:', error)
-        }
-    }
-
-
-    const mostrarModalCancelacion = () => {
-        showCancelacionModal.value = true
-    }
-
-    const cancelarPedido = async ({ motivo }) => {
-        try {
-            await axios.patch(
-                `http://localhost:3000/api/pedidos/${props.pedido.pedido_id}/estado`,
-                {
-                    estado: 'CANCELADO',
-                    motivo
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            )
-            emit('estadoActualizado')
-        } catch (error) {
-            console.error('Error al cancelar pedido:', error)
-        }
-    }
-    onMounted(async () => {
-        if (props.pedido.tiene_solicitud_pendiente) {
-            await cargarSolicitud()
-        }
-    })
+    // Inicialización
+    onMounted(() => {
+        cargarPedido();
+    });
 </script>

@@ -1,18 +1,14 @@
-﻿
+﻿<!-- components/pedidos/SolicitudModificacionForm.vue -->
 <template>
     <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
         <div class="flex justify-between items-start mb-6">
-            <h3 class="text-lg font-bold text-avenida-black">Solicitar ModificaciÃ³n de Pedido</h3>
-            <button @click="$emit('close')"
-                    class="text-gray-400 hover:text-gray-600">
-                x
-            </button>
+            <h3 class="text-lg font-bold text-gray-900">Solicitud de Modificación</h3>
+            <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">×</button>
         </div>
 
-        <!-- Lista de productos -->
-        <div class="space-y-4 mb-6">
-            <div v-for="detalle in detalles"
-                 :key="detalle.detalle_id"
+        <div class="space-y-4">
+            <!-- Lista de productos con cantidades -->
+            <div v-for="detalle in detalles" :key="detalle.detalle_id"
                  class="p-4 border rounded-lg hover:bg-gray-50">
                 <div class="flex items-center justify-between">
                     <div>
@@ -24,51 +20,47 @@
                     <div class="flex items-center space-x-2">
                         <label class="text-sm text-gray-600">Nueva cantidad:</label>
                         <input type="number"
-                               v-model="cambios[detalle.detalle_id]"
-                               class="border rounded-md px-3 py-1 w-24 focus:ring-avenida-green focus:border-avenida-green"
-                               :placeholder="detalle.cantidad_solicitada"
-                               min="0">
+                               v-model="cantidades[detalle.detalle_id]"
+                               class="w-24 border rounded-md px-2 py-1"
+                               :min="0">
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Notas -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Notas adicionales
-            </label>
-            <textarea v-model="notas"
-                      rows="3"
-                      class="w-full border rounded-md shadow-sm focus:ring-avenida-green focus:border-avenida-green"
-                      placeholder="Agrega notas o comentarios sobre los cambios solicitados..."></textarea>
-        </div>
+            <!-- Notas -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Notas
+                </label>
+                <textarea v-model="notas"
+                          rows="3"
+                          class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Explique el motivo de los cambios..."></textarea>
+            </div>
 
-        <!-- Error message -->
-        <div v-if="error"
-             class="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-            {{ error }}
-        </div>
+            <!-- Error -->
+            <div v-if="error" class="text-red-600 bg-red-50 p-3 rounded-lg">
+                {{ error }}
+            </div>
 
-        <!-- Botones -->
-        <div class="flex justify-end space-x-3">
-            <button @click="$emit('close')"
-                    :disabled="loading"
-                    class="px-4 py-2 border rounded-md hover:bg-gray-50">
-                Cancelar
-            </button>
-            <button @click="enviarSolicitud"
-                    :disabled="!hayCambios || loading"
-                    class="px-4 py-2 bg-avenida-green text-white rounded-md hover:bg-green-600 disabled:opacity-50">
-                {{ loading ? 'Enviando...' : 'Enviar Solicitud' }}
-            </button>
+            <!-- Botones -->
+            <div class="flex justify-end space-x-3 pt-4">
+                <button @click="$emit('close')"
+                        class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button @click="enviarSolicitud"
+                        class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">
+                    Enviar Solicitud
+                </button>
+            </div>
         </div>
     </div>
 </template>
+
 <script setup>
     import { ref, computed } from 'vue'
-    import { jwtDecode } from 'jwt-decode'
-    import axios from 'axios'
+    import { useAuthStore } from '@/stores/auth'
 
     const props = defineProps({
         pedidoId: {
@@ -81,60 +73,43 @@
         }
     })
 
-    const emit = defineEmits(['close', 'solicitudEnviada'])
+    const emit = defineEmits(['close', 'solicitud-enviada'])
 
-    const cambios = ref({})
+    const authStore = useAuthStore()
+    const cantidades = ref({})
     const notas = ref('')
-    const loading = ref(false)
     const error = ref('')
 
     const hayCambios = computed(() => {
-        return Object.keys(cambios.value).length > 0 &&
-            Object.values(cambios.value).some(v => v !== '')
+        return Object.keys(cantidades.value).length > 0 &&
+            Object.values(cantidades.value).some(v => v !== '')
     })
 
     const enviarSolicitud = async () => {
         try {
-            loading.value = true
-            error.value = ''
-
-            const token = localStorage.getItem('token')
-            const decodedToken = jwtDecode(token)
-
-            const cambiosFormateados = Object.entries(cambios.value)
-                .filter(([, nuevaCantidad]) => nuevaCantidad !== '')
-                .map(([detalleId, nuevaCantidad]) => {
-                    const detalle = props.detalles.find(d => d.detalle_id === parseInt(detalleId))
-                    return {
-                        detalle_id: parseInt(detalleId),
-                        cantidad_anterior: detalle.cantidad_solicitada,
-                        cantidad_nueva: parseInt(nuevaCantidad)
-                    }
-                })
-
-            const solicitud = {
-                solicitado_por: decodedToken.id,
-                notas: notas.value,
-                cambios: cambiosFormateados
+            if (!hayCambios.value) {
+                error.value = 'Debe realizar al menos un cambio en las cantidades'
+                return
             }
 
-            await axios.post(
-                `/api/pedidos/${props.pedidoId}/solicitud-modificacion`,
-                { solicitud },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            )
+            const cambios = Object.entries(cantidades.value)
+                .filter(([, cantidad]) => cantidad !== '')
+                .map(([detalleId, cantidad]) => ({
+                    detalle_id: parseInt(detalleId),
+                    cantidad_anterior: props.detalles.find(d => d.detalle_id === parseInt(detalleId)).cantidad_solicitada,
+                    cantidad_nueva: parseInt(cantidad)
+                }))
 
-            emit('solicitudEnviada')
+            await axios.post(`/api/pedidos/${props.pedidoId}/solicitud-modificacion`, {
+                solicitado_por: authStore.userId,
+                cambios,
+                notas: notas.value
+            })
+
+            emit('solicitud-enviada')
             emit('close')
         } catch (err) {
             error.value = err.response?.data?.message || 'Error al enviar la solicitud'
-        } finally {
-            loading.value = false
         }
     }
 </script>

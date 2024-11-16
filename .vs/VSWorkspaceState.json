@@ -2,15 +2,15 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\routes",
+    "\\backend\\config",
+    "\\backend\\controllers",
+    "\\backend\\middleware",
     "\\la-avenida",
     "\\la-avenida\\src",
-    "\\la-avenida\\src\\assets",
     "\\la-avenida\\src\\components",
-    "\\la-avenida\\src\\components\\calendario",
     "\\la-avenida\\src\\components\\pedidos",
     "\\la-avenida\\src\\router"
   ],
-  "SelectedNode": "\\la-avenida\\src\\components\\calendario\\NuevoEvento.vue",
+  "SelectedNode": "\\la-avenida\\src\\components\\calendario\\CalendarioMejorado.vue",
   "PreviewInSolutionExplorer": false
 }

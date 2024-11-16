@@ -12,7 +12,9 @@ import NuevoPedido from '../components/pedidos/NuevoPedido.vue'
 import Login from '../views/auth/Login.vue'
 import Users from '../views/admin/Users.vue'
 import Sucursales from '../views/admin/Sucursales.vue'
+import TimelinePedido from '../components/pedidos/TimelinePedido.vue'
 import axios from 'axios'
+
 
 const routes = [
     {
@@ -29,6 +31,13 @@ const routes = [
             requiresAuth: true,
             requiresAdmin: true
         }
+    },
+    {
+        path: '/pedidos/:id',
+        name: 'DetallePedido',
+        component: TimelinePedido,
+        props: route => ({ id: parseInt(route.params.id) }), // Pasamos solo el ID
+        meta: { requiresAuth: true }
     },
     {
         path: '/',
