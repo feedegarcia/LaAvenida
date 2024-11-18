@@ -42,9 +42,9 @@
                 <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
                         <div :class="[
-              'w-5 h-5 rounded-full border-2 border-white shadow',
-              estadoClasses[pedido.estado]
-            ]"></div>
+                            'w-5 h-5 rounded-full border-2 border-white shadow',
+                            estadoClasses[pedido.estado]
+                        ]"></div>
                     </div>
                     <div class="bg-white rounded-lg border p-4">
                         <div class="flex justify-between items-start mb-2">
@@ -70,9 +70,9 @@
                                     :key="accion.tipo"
                                     @click="ejecutarAccion(accion.tipo)"
                                     :class="[
-                        'px-4 py-2 rounded-lg text-white',
-                        accion.clase
-                      ]">
+                                'px-4 py-2 rounded-lg text-white',
+                                accion.clase
+                            ]">
                                 {{ accion.texto }}
                             </button>
                         </div>
@@ -80,7 +80,6 @@
                 </div>
 
                 <!-- Detalles del pedido -->
-                <!-- Reemplazar la sección de detalles del pedido -->
                 <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
                         <div class="w-5 h-5 rounded-full bg-gray-300 border-2 border-white shadow"></div>
@@ -178,15 +177,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- Total general -->
-                <div class="mt-4 border-t pt-4 flex justify-end">
-                    <div class="text-right">
-                        <span class="text-gray-600">Total del Pedido:</span>
-                        <span class="ml-2 text-lg font-medium">
-                            $ {{ formatoMoneda(pedido.total || calcularTotal()) }}
-                        </span>
-                    </div>
-                </div>
+
                 <!-- Sistema de notas -->
                 <div class="relative">
                     <div class="absolute -left-[2.85rem] mt-1.5">
@@ -194,16 +185,23 @@
                     </div>
                     <div class="bg-white rounded-lg border p-4">
                         <h4 class="font-medium mb-3">Notas</h4>
+
                         <!-- Historial de notas -->
-                        <div v-if="pedido.notas" class="space-y-4 mb-4">
-                            <div v-for="nota in pedido.notas" :key="nota.id" class="bg-gray-50 p-3 rounded">
+                        <div v-if="notas.length > 0" class="space-y-4 mb-4">
+                            <div v-for="nota in notas"
+                                 :key="nota.nota_id"
+                                 class="bg-gray-50 p-3 rounded">
                                 <div class="flex justify-between text-sm text-gray-500 mb-1">
-                                    <span>{{ formatoFechaCompleta(nota.fecha) }}</span>
-                                    <span>{{ nota.sucursal }} - {{ nota.usuario }}</span>
+                                    <span>{{ formatoFechaCompleta(nota.fecha_creacion) }}</span>
+                                    <span>{{ nota.sucursal_nombre }} - {{ nota.usuario_nombre }}</span>
                                 </div>
                                 <p>{{ nota.texto }}</p>
                             </div>
                         </div>
+                        <div v-else class="text-gray-500 text-sm mb-4">
+                            No hay notas en este pedido
+                        </div>
+
                         <!-- Agregar nota -->
                         <div v-if="puedeAgregarNotas" class="mt-4">
                             <textarea v-model="nuevaNota"
@@ -212,7 +210,8 @@
                                       placeholder="Agregar una nota..."></textarea>
                             <div class="flex justify-end mt-2">
                                 <button @click="agregarNota"
-                                        class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">
+                                        :disabled="!nuevaNota.trim()"
+                                        class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50">
                                     Agregar Nota
                                 </button>
                             </div>
@@ -223,7 +222,7 @@
         </div>
 
         <!-- Modal de cancelación -->
-        <Dialog :open="showCancelModal" @close="showCancelModal = false">
+        <Dialog :open="showCancelModal" @close="showCancelModal = false" class="relative z-50">
             <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
             <div class="fixed inset-0 flex items-center justify-center p-4">
                 <DialogPanel class="w-full max-w-md bg-white rounded-lg p-6">
@@ -271,7 +270,7 @@
     });
 
     const emit = defineEmits(['actualizar']);
-    const authStore = useAuthStore();
+    
 
     // Estados locales
     const pedido = ref(null);
@@ -279,7 +278,9 @@
     const error = ref(null);
     const showCancelModal = ref(false);
     const motivoCancelacion = ref('');
+    const notas = ref([]);
     const nuevaNota = ref('');
+    const authStore = useAuthStore();
 
     // Clases para estados
     const estadoClasses = {
@@ -353,6 +354,17 @@
         return pedido.value && !['FINALIZADO', 'CANCELADO'].includes(pedido.value.estado);
     });
 
+    // Función para cargar notas
+    const cargarNotas = async () => {
+        try {
+            const response = await axios.get(`/api/pedidos/${props.id}/notas`);
+            notas.value = response.data;
+        } catch (error) {
+            console.error('Error al cargar notas:', error);
+            notas.value = []; // En caso de error, inicializamos como array vacío
+        }
+
+    };
     // Métodos de formateo
     const formatoFecha = (fecha) => {
         return new Date(fecha).toLocaleDateString('es-AR');
@@ -376,6 +388,7 @@
             return total + (detalle.cantidad_solicitada * detalle.precio_unitario);
         }, 0);
     };
+
     const productosAgrupados = computed(() => {
         if (!pedido.value?.detalles) return {};
 
@@ -400,14 +413,13 @@
         }, 0);
     };
 
-    // Añadir este método
     const calcularSubtotalCategoria = (subcategorias) => {
         return Object.values(subcategorias).reduce((total, productos) => {
             return total + calcularSubtotalGrupo(productos);
         }, 0);
     };
 
-    // Métodos de acción
+    // Función para cargar el pedido
     const cargarPedido = async () => {
         try {
             loading.value = true;
@@ -427,6 +439,12 @@
                 showCancelModal.value = true;
                 break;
             case 'confirmar':
+                if (pedido.value.estado !== 'BORRADOR') {
+                    throw new Error('Solo se pueden confirmar pedidos en estado borrador');
+                }
+                if (!pedido.value.detalles?.length) {
+                    throw new Error('No se puede confirmar un pedido sin productos');
+                }
                 await cambiarEstado('EN_FABRICA');
                 break;
             case 'preparar':
@@ -452,37 +470,51 @@
         }
     };
 
+    // Función para confirmar cancelación
     const confirmarCancelacion = async () => {
+        if (!motivoCancelacion.value.trim()) {
+            // Aquí podrías agregar una validación visual
+            return;
+        }
+
         try {
             await axios.patch(`/api/pedidos/${props.id}/estado`, {
-                estado: 'CANCELADO',    
+                estado: 'CANCELADO',
                 motivo: motivoCancelacion.value
             });
-            await cargarPedido();
+
             showCancelModal.value = false;
             motivoCancelacion.value = '';
+            await cargarPedido(); // Recargar el pedido para mostrar los cambios
         } catch (error) {
             console.error('Error al cancelar pedido:', error);
+            // Aquí podrías agregar una notificación de error
         }
     };
 
+    // Función para agregar nota
     const agregarNota = async () => {
         if (!nuevaNota.value.trim()) return;
 
         try {
-            await axios.post(`/api/pedidos/${props.id}/notas`, {
-                texto: nuevaNota.value,
-                sucursal_id: authStore.sucursalActual.sucursal_id
+            const response = await axios.post(`/api/pedidos/${props.id}/notas`, {
+                texto: nuevaNota.value
             });
-            nuevaNota.value = '';
-            await cargarPedido();
+
+            // Agregar la nueva nota al principio del array
+            notas.value.unshift(response.data.nota);
+            nuevaNota.value = ''; // Limpiar el campo después de agregar
         } catch (error) {
             console.error('Error al agregar nota:', error);
+            // Aquí podrías agregar alguna notificación de error para el usuario
         }
     };
 
     // Inicialización
-    onMounted(() => {
-        cargarPedido();
+    onMounted(async () => {
+        await Promise.all([
+            cargarPedido(),
+            cargarNotas()
+        ]);
     });
 </script>

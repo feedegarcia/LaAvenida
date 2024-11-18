@@ -2,15 +2,15 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\config",
     "\\backend\\controllers",
     "\\backend\\middleware",
+    "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
     "\\la-avenida\\src\\components",
     "\\la-avenida\\src\\components\\pedidos",
     "\\la-avenida\\src\\router"
   ],
-  "SelectedNode": "\\la-avenida\\src\\components\\calendario\\CalendarioMejorado.vue",
+  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\TimelinePedido.vue",
   "PreviewInSolutionExplorer": false
 }
