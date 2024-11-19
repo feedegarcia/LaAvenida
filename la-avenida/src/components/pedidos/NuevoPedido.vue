@@ -1,17 +1,9 @@
-﻿
-<template>
+﻿<template>
     <div class="bg-white shadow-lg rounded-lg p-6">
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
             <div class="flex items-center space-x-4">
                 <h3 class="text-lg font-bold text-avenida-black">Nuevo Pedido</h3>
-                <div>
-                    <label class="text-sm text-gray-600">Fecha de entrega:</label>
-                    <input type="date"
-                           v-model="pedido.fecha_entrega_requerida"
-                           :min="fechaMinima"
-                           class="ml-2 border rounded-md px-2 py-1">
-                </div>
             </div>
             <div class="flex space-x-2">
                 <button @click="guardarBorrador"
@@ -25,55 +17,19 @@
             </div>
         </div>
 
-        <!-- Mini Calendario y Clima -->
-        <div class="mb-6 grid grid-cols-2 gap-6">
-            <!-- Mini Calendario -->
-            <div class="bg-white rounded-lg border p-4">
-                <div class="mb-4 flex justify-between items-center">
-                    <button @click="cambiarMes(-1)" class="p-1 hover:bg-gray-100 rounded">
-                        <ChevronLeft class="w-5 h-5" />
-                    </button>
-                    <h4 class="font-medium">
-                        {{
-                            new Date(currentDate).toLocaleDateString('es-AR', {
-                                month: 'long',
-                                year: 'numeric'
-                            })
-                        }}
-                    </h4>
-                    <button @click="cambiarMes(1)" class="p-1 hover:bg-gray-100 rounded">
-                        <ChevronRight class="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-7 gap-px bg-gray-200">
-                    <div v-for="dia in ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']"
-                         :key="dia"
-                         class="bg-gray-50 p-2 text-center text-sm font-medium">
-                        {{ dia }}
-                    </div>
-
-                    <div v-for="date in obtenerDiasMes"
-                         :key="date.toISOString()"
-                         @click="seleccionarFecha(date)"
-                         :class="[
-                            'bg-white p-2 text-center cursor-pointer hover:bg-gray-50',
-                            esFechaSeleccionada(date) ? 'bg-emerald-50 border-emerald-500 border-2' : '',
-                            esProximaEntrega(date) ? 'bg-blue-50' : '',
-                            eventosStore.tieneEventos(date) ? 'bg-yellow-50' : '',
-                            !esFechaValida(date) ? 'text-gray-300 cursor-not-allowed' : ''
-                         ]">
-                        {{ date.getDate() }}
-                        <div v-if="eventosStore.tieneEventos(date)"
-                             class="w-1 h-1 bg-yellow-400 rounded-full mx-auto mt-1">
-                        </div>
-                    </div>
-                </div>
+        <!-- Grid de fecha y clima -->
+        <div class="grid grid-cols-3 gap-6 mb-6">
+            <!-- Calendario reducido -->
+            <div class="col-span-2">
+                <CalendarioReducido v-model="fechaSeleccionada"
+                                    @update:modelValue="onFechaSeleccionada" />
             </div>
 
             <!-- Widget del Clima -->
-            <WeatherWidget v-if="fechaSeleccionada"
-                           :fecha-pedido="normalizarFecha(fechaSeleccionada)" />
+            <div class="col-span-1">
+                <WeatherWidget v-if="fechaSeleccionada"
+                               :fecha-pedido="normalizarFecha(fechaSeleccionada)" />
+            </div>
         </div>
 
         <!-- Selector de Sucursal -->
@@ -199,9 +155,8 @@
                         </div>
                     </div>
                 </div>
-
-
             </div>
+
             <!-- Notas -->
             <div class="mt-6">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Notas del pedido:</label>
@@ -213,7 +168,6 @@
         </template>
     </div>
 </template>
-
 <style scoped>
     .subcategoria-collapse-enter-active,
     .subcategoria-collapse-leave-active {
@@ -227,10 +181,11 @@
     }
 </style>
 <script setup>
-    import { ref, computed, onMounted } from 'vue'
+    import { ref, computed, onMounted } from 'vue';
+    import CalendarioReducido from '@/components/calendario/CalendarioReducido.vue';
     import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
     import { useEventosStore } from '@/stores/eventos'
-    import WeatherWidget from './WeatherWidget.vue'
+    import WeatherWidget from './WeatherWidget.vue';
     import axios from 'axios'
     import { useRouter } from 'vue-router'
     import { jwtDecode } from 'jwt-decode'
@@ -239,26 +194,28 @@
     axios.defaults.baseURL = 'http://localhost:3000'
     const eventosStore = useEventosStore()
     const currentDate = ref(new Date())
-    const fechaSeleccionada = ref(new Date(obtenerProximaFechaEntrega()));
+    const fechaSeleccionada = ref(obtenerProximaFechaEntrega());
 
     // Función para obtener la próxima fecha de entrega (miércoles o sábado)
     function obtenerProximaFechaEntrega() {
-        const hoy = new Date()
-        let fecha = new Date(hoy)
+        const hoy = new Date();
+        let fecha = new Date(hoy);
 
         // Si es después de las 11 AM, empezar desde mañana
         if (hoy.getHours() >= 11) {
-            fecha.setDate(fecha.getDate() + 1)
+            fecha.setDate(fecha.getDate() + 1);
         }
 
+        // Buscar próximo miércoles o sábado
         while (true) {
-            const dia = fecha.getDay()
+            const dia = fecha.getDay();
             if (dia === 3 || dia === 6) {
-                break
+                break;
             }
-            fecha.setDate(fecha.getDate() + 1)
+            fecha.setDate(fecha.getDate() + 1);
         }
 
+        fecha.setHours(0, 0, 0, 0); // Resetear la hora a medianoche
         return fecha;
     }
 
@@ -324,9 +281,8 @@
     }
 
     const seleccionarFecha = (date) => {
-        const fechaNormalizada = new Date(date);
-        fechaNormalizada.setHours(0, 0, 0, 0);
-        fechaSeleccionada.value = fechaNormalizada;
+        fechaSeleccionada.value = date;
+        pedido.value.fecha_entrega_requerida = date.toISOString().split('T')[0];
     };
 
     // Inicialización
@@ -347,9 +303,9 @@
     const colapsados = ref(new Set())
     const ordenSubcategorias = ref(new Map())
     const pedido = ref({
-        fecha_entrega_requerida: '',
+        fecha_entrega_requerida: fechaSeleccionada.value.toISOString().split('T')[0], // Formato YYYY-MM-DD
         notas: ''
-    })
+    });
     const productos = ref(null)
     const cantidades = ref({})
     const errores = ref({})
@@ -545,7 +501,13 @@
         }
         return Object.keys(errores.value).length === 0
     }
-
+    // Agregar nuevo método para manejar la selección de fecha
+    const onFechaSeleccionada = (fecha) => {
+        fechaSeleccionada.value = fecha;
+        // Formatear la fecha como YYYY-MM-DD
+        const fechaFormateada = fecha.toISOString().split('T')[0];
+        pedido.value.fecha_entrega_requerida = fechaFormateada;
+    };
     const guardarBorrador = async () => {
         try {
             const detalles = Object.entries(cantidades.value)
@@ -602,20 +564,20 @@
     }
 
     const confirmarPedido = async () => {
-        if (!validarPedido()) return
+        if (!validarPedido()) return;
 
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('token');
             if (!token) {
-                throw new Error('No hay token de autenticación')
+                throw new Error('No hay token de autenticación');
             }
 
             const detalles = Object.entries(cantidades.value)
                 .filter(([, cantidad]) => cantidad > 0)
                 .map(([productoId, cantidad]) => {
-                    const producto = encontrarProducto(parseInt(productoId))
+                    const producto = encontrarProducto(parseInt(productoId));
                     if (!producto) {
-                        throw new Error(`Producto no encontrado: ${productoId}`)
+                        throw new Error(`Producto no encontrado: ${productoId}`);
                     }
                     return {
                         producto_id: parseInt(productoId),
@@ -623,48 +585,48 @@
                         precio_unitario: producto.precio_mayorista || 0,
                         origen_id: producto.origen_id,
                         tipo_origen: producto.tipo_origen
-                    }
-                })
+                    };
+                });
 
             if (detalles.length === 0) {
-                alert('Debe seleccionar al menos un producto')
-                return
+                alert('Debe seleccionar al menos un producto');
+                return;
             }
 
             const pedidosPorOrigen = detalles.reduce((acc, detalle) => {
-                const producto = encontrarProducto(detalle.producto_id)
+                const producto = encontrarProducto(detalle.producto_id);
                 const sucursalDestino = producto.tipo_origen === 'ELABORACION_PROPIA'
                     ? producto.sucursal_fabricante_id
-                    : producto.lugar_pedido_defecto
+                    : producto.lugar_pedido_defecto;
 
                 if (!sucursalDestino) {
-                    throw new Error(`El producto ${producto.nombre} no tiene definido un destino de pedido`)
+                    throw new Error(`El producto ${producto.nombre} no tiene definido un destino de pedido`);
                 }
 
                 if (!acc[sucursalDestino]) {
                     acc[sucursalDestino] = {
                         sucursal_origen: sucursalSeleccionada.value,
                         sucursal_destino: sucursalDestino,
-                        fecha_entrega_requerida: pedido.value.fecha_entrega_requerida,
+                        fecha_entrega_requerida: fechaSeleccionada.value.toISOString().split('T')[0], // Asegurar formato YYYY-MM-DD
                         tipo: 'PEDIDO_FABRICA',
                         detalles: [],
                         notas: pedido.value.notas || ''
-                    }
+                    };
                 }
 
                 acc[sucursalDestino].detalles.push({
                     producto_id: detalle.producto_id,
                     cantidad: detalle.cantidad,
                     precio_unitario: detalle.precio_unitario
-                })
+                });
 
-                return acc
-            }, {})
+                return acc;
+            }, {});
 
             for (const [, pedidoData] of Object.entries(pedidosPorOrigen)) {
                 await axios.post('/api/pedidos', pedidoData, {
                     headers: { 'Authorization': `Bearer ${token}` }
-                })
+                });
             }
 
             if (borradorActivo.value) {
@@ -672,17 +634,17 @@
                     `/api/pedidos/borrador/${borradorActivo.value}/confirmar`,
                     {},
                     { headers: { 'Authorization': `Bearer ${token}` } }
-                )
+                );
             }
 
-            alert('Pedidos creados exitosamente')
-            router.push('/pedidos')
+            alert('Pedidos creados exitosamente');
+            router.push('/pedidos');
         } catch (error) {
-            console.error('Error detallado:', error)
-            let mensajeError = 'Error al crear pedido: ' + (error.response?.data?.error || error.message)
-            alert(mensajeError)
+            console.error('Error detallado:', error);
+            let mensajeError = 'Error al crear pedido: ' + (error.response?.data?.error || error.message);
+            alert(mensajeError);
         }
-    }
+    };
 
     // Inicialización
     onMounted(async () => {

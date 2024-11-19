@@ -3,6 +3,173 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 
+// Crear nuevo pedido
+router.post('/', async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        console.log('Creando nuevo pedido:', req.body);
+        await connection.beginTransaction();
+
+        const {
+            sucursal_origen,
+            sucursal_destino,
+            fecha_entrega_requerida,
+            tipo = 'PEDIDO_FABRICA',
+            detalles,
+            notas
+        } = req.body;
+
+        // Insertar pedido
+        const [result] = await connection.query(
+            `INSERT INTO pedido (
+                sucursal_origen,
+                sucursal_destino,
+                fecha_pedido,
+                fecha_entrega_requerida,
+                tipo,
+                estado,
+                notas
+            ) VALUES (?, ?, NOW(), ?, ?, 'EN_FABRICA', ?)`,
+            [sucursal_origen, sucursal_destino, fecha_entrega_requerida, tipo, notas]
+        );
+
+        const pedidoId = result.insertId;
+
+        // Insertar detalles
+        for (const detalle of detalles) {
+            await connection.query(
+                `INSERT INTO detalle_pedido (
+                    pedido_id,
+                    producto_id,
+                    cantidad_solicitada,
+                    precio_unitario
+                ) VALUES (?, ?, ?, ?)`,
+                [pedidoId, detalle.producto_id, detalle.cantidad, detalle.precio_unitario]
+            );
+        }
+
+        // Actualizar total del pedido
+        await connection.query(
+            `UPDATE pedido 
+             SET total = (
+                 SELECT SUM(cantidad_solicitada * precio_unitario)
+                 FROM detalle_pedido 
+                 WHERE pedido_id = ?
+             )
+             WHERE pedido_id = ?`,
+            [pedidoId, pedidoId]
+        );
+
+        await connection.commit();
+
+        res.status(201).json({
+            message: 'Pedido creado exitosamente',
+            pedido_id: pedidoId
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error creando pedido:', error);
+        res.status(500).json({
+            message: 'Error al crear pedido',
+            error: error.message
+        });
+    } finally {
+        connection.release();
+    }
+});
+// Modificar cantidades del pedido
+router.patch('/:id/cantidades', async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { id } = req.params;
+        const { detalles, notas } = req.body;
+        const token = req.headers.authorization.split(' ')[1];
+        const decodedToken = jwt.verify(token, 'secret_key');
+
+        // Registrar modificación
+        const [result] = await connection.query(
+            `INSERT INTO modificacion_pedido (
+                pedido_id, usuario_id, notas, fecha
+            ) VALUES (?, ?, ?, NOW())`,
+            [id, decodedToken.id, notas]
+        );
+
+        const modificacionId = result.insertId;
+
+        // Actualizar cantidades
+        for (const detalle of detalles) {
+            await connection.query(
+                `UPDATE detalle_pedido 
+                 SET cantidad_confirmada = ?,
+                     modificado = TRUE
+                 WHERE detalle_id = ?`,
+                [detalle.cantidad_nueva, detalle.detalle_id]
+            );
+
+            // Registrar cambio
+            await connection.query(
+                `INSERT INTO detalle_modificacion (
+                    modificacion_id, detalle_id, 
+                    cantidad_anterior, cantidad_nueva
+                ) VALUES (?, ?, ?, ?)`,
+                [modificacionId, detalle.detalle_id,
+                    detalle.cantidad_anterior, detalle.cantidad_nueva]
+            );
+        }
+
+        // Actualizar total del pedido
+        await connection.query(
+            `UPDATE pedido 
+             SET total = (
+                 SELECT SUM(COALESCE(cantidad_confirmada, cantidad_solicitada) * precio_unitario)
+                 FROM detalle_pedido 
+                 WHERE pedido_id = ?
+             )
+             WHERE pedido_id = ?`,
+            [id, id]
+        );
+
+        await connection.commit();
+        res.json({ message: 'Cantidades actualizadas exitosamente' });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+
+
+});
+// Obtener historial de cambios de estado
+router.get('/:id/historial', async (req, res) => {
+    try {
+        const [historial] = await pool.query(`
+            SELECT h.*,
+                   u.nombre as usuario,
+                   JSON_ARRAYAGG(
+                       JSON_OBJECT(
+                           'detalle_id', dc.detalle_id,
+                           'cantidad_anterior', dc.cantidad_anterior,
+                           'cantidad_nueva', dc.cantidad_nueva
+                       )
+                   ) as cambios
+            FROM historial_pedido h
+            LEFT JOIN usuario u ON h.usuario_id = u.usuario_id
+            LEFT JOIN detalle_cambio dc ON h.historial_id = dc.historial_id
+            WHERE h.pedido_id = ?
+            GROUP BY h.historial_id
+            ORDER BY h.fecha DESC
+        `, [req.params.id]);
+
+        res.json(historial);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Obtener notas de un pedido
 router.get('/:id/notas', async (req, res) => {
     let connection;
@@ -219,62 +386,66 @@ router.get('/:id', async (req, res) => {
 });
 
 // Actualizar estado del pedido
+// Actualizar estado del pedido
 router.patch('/:id/estado', async (req, res) => {
     const connection = await pool.getConnection();
-
     try {
+        const { id } = req.params;  // Añadir esto al inicio
+        console.log('Recibiendo actualización de estado:', {
+            pedidoId: id,
+            cambios: req.body
+        });
+
         await connection.beginTransaction();
 
-        const { id } = req.params;
-        const { estado, detalles, motivo } = req.body;
+        const { estado, detalles, notas } = req.body;
         const token = req.headers.authorization.split(' ')[1];
         const decodedToken = jwt.verify(token, 'secret_key');
-        const usuario = decodedToken.nombre;
 
-        // Validar estado
-        const estadosValidos = [
-            'BORRADOR',
-            'EN_FABRICA',
-            'PREPARADO_MODIFICADO',
-            'RECIBIDO_CON_DIFERENCIAS',
-            'RECIBIDO',
-            'CANCELADO'
-        ];
+        console.log('Token decodificado:', decodedToken);
 
-        if (!estadosValidos.includes(estado)) {
-            throw new Error('Estado inválido');
-        }
+        // Insertar en historial
+        const [historial] = await connection.query(
+            `INSERT INTO historial_pedido (
+                pedido_id, estado_anterior, estado_nuevo, 
+                usuario_id, notas, fecha
+            ) VALUES (?, 
+                (SELECT estado FROM pedido WHERE pedido_id = ?),
+                ?, ?, ?, NOW()
+            )`,
+            [id, id, estado, decodedToken.id, notas]  // Quitar motivo aquí
+        );
 
-        // Si es cancelación, requerir motivo
-        if (estado === 'CANCELADO' && !motivo) {
-            throw new Error('Se requiere un motivo para cancelar el pedido');
-        }
+        // Actualizar estado del pedido
+        await connection.query(
+            'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+            [estado, id]
+        );
 
-        if (estado === 'CANCELADO') {
-            await connection.query(
-                `UPDATE pedido 
-                 SET estado = ?,
-                     motivo_cancelacion = ?,
-                     cancelado_por = ?,
-                     fecha_cancelacion = NOW()
-                 WHERE pedido_id = ?`,
-                [estado, motivo, usuario, id]
-            );
-        } else {
-            await connection.query(
-                'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
-                [estado, id]
-            );
-        }
-
-        if (detalles) {
+        // Si hay detalles modificados
+        if (detalles && detalles.length > 0) {
             for (const detalle of detalles) {
+                // Registrar cambios en detalles
+                await connection.query(
+                    `INSERT INTO detalle_cambio (
+                        historial_id, detalle_id, 
+                        cantidad_anterior, cantidad_nueva
+                    ) VALUES (?, ?, ?, ?)`,
+                    [
+                        historial.insertId,
+                        detalle.detalle_id,
+                        detalle.cantidad_anterior,
+                        detalle.cantidad_nueva
+                    ]
+                );
+
+                // Actualizar cantidades
                 await connection.query(
                     `UPDATE detalle_pedido 
                      SET cantidad_confirmada = ?,
                          estado = ?
                      WHERE detalle_id = ?`,
-                    [detalle.cantidad_confirmada, estado, detalle.detalle_id]
+                    [detalle.cantidad_nueva, estado, detalle.detalle_id]
                 );
             }
         }
@@ -282,14 +453,9 @@ router.patch('/:id/estado', async (req, res) => {
         // Si el estado es RECIBIDO, actualizar stock
         if (estado === 'RECIBIDO') {
             const [detallesPedido] = await connection.query(
-                `SELECT producto_id, cantidad_confirmada
+                `SELECT producto_id, cantidad_confirmada 
                  FROM detalle_pedido
                  WHERE pedido_id = ?`,
-                [id]
-            );
-
-            const [pedido] = await connection.query(
-                'SELECT sucursal_destino FROM pedido WHERE pedido_id = ?',
                 [id]
             );
 
@@ -298,24 +464,24 @@ router.patch('/:id/estado', async (req, res) => {
                     `UPDATE stock 
                      SET cantidad = cantidad + ?,
                          fecha_actualizacion = NOW()
-                     WHERE sucursal_id = ? AND producto_id = ?`,
-                    [
-                        detalle.cantidad_confirmada,
-                        pedido[0].sucursal_destino,
-                        detalle.producto_id
-                    ]
+                     WHERE producto_id = ?`,
+                    [detalle.cantidad_confirmada, detalle.producto_id]
                 );
             }
         }
 
         await connection.commit();
-        res.json({ message: 'Estado actualizado exitosamente' });
+        res.json({
+            message: 'Estado actualizado exitosamente',
+            estado: estado
+        });
+
     } catch (error) {
         await connection.rollback();
-        console.error('Error:', error);
+        console.error('Error en actualización de estado:', error);
         res.status(500).json({
-            message: 'Error al actualizar estado',
-            error: error.message
+            error: error.message,
+            details: error.stack
         });
     } finally {
         connection.release();

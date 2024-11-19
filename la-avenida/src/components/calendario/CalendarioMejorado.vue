@@ -319,9 +319,25 @@
             console.error('Error cargando tipos de evento:', error);
         }
     };
+    const props = defineProps({
+        modo: {
+            type: String,
+            default: 'normal' // 'normal' o 'seleccion'
+        },
+        fechaInicial: {
+            type: Date,
+            default: () => new Date()
+        }
+    });
 
+    // Agregar este emit
+    const emit = defineEmits(['fecha-seleccionada']);
     // Funciones de modales
-    const openEventModal = (date = null) => {
+   const openEventModal = (date = null) => {
+        if (props.modo === 'seleccion') {
+            emit('fecha-seleccionada', date);
+            return;
+        }
         const formattedDate = date ? date.toISOString().split('T')[0] : '';
 
         eventForm.value = {

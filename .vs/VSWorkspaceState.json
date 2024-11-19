@@ -2,15 +2,15 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\controllers",
     "\\backend\\middleware",
     "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
     "\\la-avenida\\src\\components",
     "\\la-avenida\\src\\components\\pedidos",
-    "\\la-avenida\\src\\router"
+    "\\la-avenida\\src\\router",
+    "\\la-avenida\\src\\views"
   ],
-  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\TimelinePedido.vue",
+  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\PedidoCard.vue",
   "PreviewInSolutionExplorer": false
 }

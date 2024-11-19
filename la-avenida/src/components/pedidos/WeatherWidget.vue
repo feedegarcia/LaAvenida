@@ -1,56 +1,41 @@
 ﻿<template>
-    <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+    <div class="bg-white rounded-lg shadow-lg p-4 mb-6 max-w-sm">
         <!-- Loading state -->
-        <div v-if="loading" class="flex items-center justify-center h-32">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+        <div v-if="loading" class="flex items-center justify-center h-24">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
         </div>
 
         <!-- Error state -->
         <div v-else-if="error" class="text-red-500 text-center p-4">
             <p>{{ error }}</p>
-            <button @click="cargarPronostico"
-                    class="mt-2 text-sm text-emerald-600 hover:text-emerald-700">
-                Intentar nuevamente
-            </button>
         </div>
 
         <!-- Contenido principal -->
         <template v-else>
-            <h3 class="text-lg font-semibold mb-4">
-                Pronóstico del tiempo en Haedo
-                <span class="text-xs text-gray-500">(Lat: {{ LAT }}, Lon: {{ LON }})</span>
+            <h3 class="text-base font-semibold mb-2">
+                Pronóstico para el día seleccionado
             </h3>
 
-            <div class="grid grid-cols-5 gap-4">
-                <div v-for="(dia, index) in diasPronostico"
+            <div class="grid grid-cols-3 gap-2">
+                <div v-for="(dia, index) in diasPronostico.slice(0, 3)"
                      :key="index"
                      :class="[
-                        'text-center p-3 border rounded-lg',
-                        dia.esDiaPedido ? 'border-2 border-emerald-500 bg-emerald-50' : ''
+                        'text-center p-2 rounded-lg',
+                        dia.esDiaPedido ? 'bg-emerald-50 border border-emerald-200' : ''
                      ]">
-                    <p :class="[
-                        'text-sm mb-2',
-                        dia.esDiaPedido ? 'font-semibold text-emerald-700' : 'text-gray-600'
-                    ]">
-                        {{ formatearFecha(dia.fecha) }}
-                    </p>
+                    <p class="text-sm mb-1">{{ formatearFecha(dia.fecha) }}</p>
 
                     <component :is="obtenerIconoClima(dia.clima)"
-                               class="w-8 h-8 mx-auto"
+                               class="w-6 h-6 mx-auto"
                                :class="obtenerColorIcono(dia.clima)" />
 
-                    <div class="mt-2">
-                        <p class="text-sm">{{ Math.round(dia.tempMax) }}° max</p>
-                        <p class="text-sm text-gray-600">{{ Math.round(dia.tempMin) }}° min</p>
+                    <div class="mt-1">
+                        <p class="text-xs">{{ Math.round(dia.tempMax) }}° max</p>
+                        <p class="text-xs text-gray-600">{{ Math.round(dia.tempMin) }}° min</p>
+                        <p class="text-xs text-gray-500">
+                            {{ dia.probLluvia }}% lluvia
+                        </p>
                     </div>
-
-                    <div class="mt-1 text-xs text-gray-500">
-                        <p>Prob. lluvia: {{ dia.probLluvia }}%</p>
-                    </div>
-
-                    <template v-if="dia.esDiaPedido">
-                        <p class="text-xs text-emerald-700 mt-1">Día del pedido</p>
-                    </template>
                 </div>
             </div>
         </template>
@@ -243,15 +228,15 @@
     };
 
     // Observar cambios en fechaPedido y recargar datos cuando sea necesario
-    watch(() => props.fechaPedido,
-        debounce((newDate) => {
+    watch(
+        () => props.fechaPedido,
+        (newDate) => {
             if (!newDate) return;
 
             const fecha = new Date(newDate);
             fecha.setHours(0, 0, 0, 0);
-            console.log('Fecha normalizada:', fecha.toISOString());
             cargarPronostico();
-        }, 300),
+        },
         { immediate: true }
     );
 

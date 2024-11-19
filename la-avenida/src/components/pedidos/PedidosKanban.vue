@@ -62,7 +62,8 @@
                                 <PedidoCard v-for="pedido in pedidosEnColaActivos"
                                             :key="pedido.pedido_id"
                                             :pedido="pedido"
-                                            :highlight="!!pedido.tiene_solicitud_pendiente" />
+                                            :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
+                                            @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
                             </div>
                             <div v-else class="text-center text-gray-500 py-4">
                                 No hay pedidos en curso
@@ -90,7 +91,8 @@
                                 <PedidoCard v-for="pedido in pedidosEnColaFinalizados"
                                             :key="pedido.pedido_id"
                                             :pedido="pedido"
-                                            :highlight="!!pedido.tiene_solicitud_pendiente" />
+                                            :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
+                                            @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
                             </div>
                             <div v-else class="text-center text-gray-500 py-4">
                                 No hay pedidos finalizados
@@ -131,7 +133,8 @@
                                 <PedidoCard v-for="pedido in pedidosEnCurso"
                                             :key="pedido.pedido_id"
                                             :pedido="pedido"
-                                            :highlight="!!pedido.tiene_solicitud_pendiente" />
+                                            :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
+                                            @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
                             </div>
                             <div v-else class="text-center text-gray-500 py-4">
                                 No hay pedidos en curso
@@ -159,7 +162,8 @@
                                 <PedidoCard v-for="pedido in pedidosBorrador"
                                             :key="pedido.pedido_id"
                                             :pedido="pedido"
-                                            :highlight="!!pedido.tiene_solicitud_pendiente" />
+                                            :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
+                                            @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
                             </div>
                             <div v-else class="text-center text-gray-500 py-4">
                                 No hay borradores
@@ -187,7 +191,8 @@
                                 <PedidoCard v-for="pedido in pedidosFinalizados"
                                             :key="pedido.pedido_id"
                                             :pedido="pedido"
-                                            :highlight="!!pedido.tiene_solicitud_pendiente"/>
+                                            :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
+                                            @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
                             </div>
                             <div v-else class="text-center text-gray-500 py-4">
                                 No hay pedidos finalizados
@@ -205,6 +210,8 @@
     import axios from 'axios'
     import PedidoCard from './PedidoCard.vue'
 
+
+    const emit = defineEmits(['pedidoSeleccionado'])
     // Estados base
     const pedidos = ref([])
     const sucursalSeleccionada = ref('')
@@ -253,57 +260,63 @@
         Array.isArray(pedidos.value)
             ? pedidos.value.filter(p => p.destino === sucursalSeleccionada.value)
             : []
-    )
+    );
+
+
+    const pedidosEnCurso = computed(() => {
+        const estadosEnCurso = ['EN_FABRICA', 'PREPARADO', 'EN_FABRICA_MODIFICADO', 'RECIBIDO_CON_DIFERENCIAS', 'PREPARADO_MODIFICADO'];
+        const filtrados = pedidosRealizados.value.filter(p =>
+            estadosEnCurso.includes(p.estado)
+        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido));
+
+        const inicio = (paginacion.value.en_curso.realizados - 1) * itemsPorPagina;
+        return filtrados.slice(inicio, inicio + itemsPorPagina);
+    });
+
+    const pedidosBorrador = computed(() => {
+        const filtrados = pedidosRealizados.value.filter(p =>
+            p.estado === 'BORRADOR'
+        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido));
+
+        const inicio = (paginacion.value.borrador.realizados - 1) * itemsPorPagina;
+        return filtrados.slice(inicio, inicio + itemsPorPagina);
+    });
+
+    const pedidosFinalizados = computed(() => {
+        const estadosFinalizados = ['RECIBIDO', 'FINALIZADO', 'CANCELADO'];
+        const filtrados = pedidosRealizados.value.filter(p =>
+            estadosFinalizados.includes(p.estado)
+        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido));
+
+        const inicio = (paginacion.value.finalizado.realizados - 1) * itemsPorPagina;
+        return filtrados.slice(inicio, inicio + itemsPorPagina);
+    }); 
+
+    const pedidosEnColaActivos = computed(() => {
+        const estadosActivos = ['EN_FABRICA', 'PREPARADO_MODIFICADO', 'RECIBIDO_CON_DIFERENCIAS'];
+        const filtrados = pedidosRecibidos.value.filter(p =>
+            estadosActivos.includes(p.estado)
+        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido));
+
+        const inicio = (paginacion.value.en_curso.recibidos - 1) * itemsPorPagina;
+        return filtrados.slice(inicio, inicio + itemsPorPagina);
+    });
+
+    const pedidosEnColaFinalizados = computed(() => {
+        const estadosFinalizados = ['RECIBIDO', 'FINALIZADO', 'CANCELADO'];
+        const filtrados = pedidosRecibidos.value.filter(p =>
+            estadosFinalizados.includes(p.estado)
+        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido));
+
+        const inicio = (paginacion.value.finalizado.recibidos - 1) * itemsPorPagina;
+        return filtrados.slice(inicio, inicio + itemsPorPagina);
+    });
 
     const pedidosRealizados = computed(() =>
         Array.isArray(pedidos.value)
             ? pedidos.value.filter(p => p.origen === sucursalSeleccionada.value)
             : []
-    )
-
-    const pedidosEnCurso = computed(() => {
-        const filtrados = pedidosRealizados.value.filter(p =>
-            ['EN_FABRICA', 'PREPARADO_MODIFICADO', 'RECIBIDO_CON_DIFERENCIAS'].includes(p.estado)
-        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido))
-
-        const inicio = (paginacion.value.en_curso.realizados - 1) * itemsPorPagina
-        return filtrados.slice(inicio, inicio + itemsPorPagina)
-    })
-
-    const pedidosBorrador = computed(() => {
-        const filtrados = pedidosRealizados.value.filter(p => p.estado === 'BORRADOR')
-            .sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido))
-
-        const inicio = (paginacion.value.borrador.realizados - 1) * itemsPorPagina
-        return filtrados.slice(inicio, inicio + itemsPorPagina)
-    })
-
-    const pedidosFinalizados = computed(() => {
-        const filtrados = pedidosRealizados.value.filter(p =>
-            ['RECIBIDO', 'CANCELADO'].includes(p.estado)
-        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido))
-
-        const inicio = (paginacion.value.finalizado.realizados - 1) * itemsPorPagina
-        return filtrados.slice(inicio, inicio + itemsPorPagina)
-    })
-
-    const pedidosEnColaActivos = computed(() => {
-        const filtrados = pedidosRecibidos.value.filter(p =>
-            ['EN_FABRICA', 'PREPARADO_MODIFICADO', 'RECIBIDO_CON_DIFERENCIAS'].includes(p.estado)
-        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido))
-
-        const inicio = (paginacion.value.en_curso.recibidos - 1) * itemsPorPagina
-        return filtrados.slice(inicio, inicio + itemsPorPagina)
-    })
-
-    const pedidosEnColaFinalizados = computed(() => {
-        const filtrados = pedidosRecibidos.value.filter(p =>
-            ['RECIBIDO', 'CANCELADO'].includes(p.estado)
-        ).sort((a, b) => new Date(b.fecha_pedido) - new Date(a.fecha_pedido))
-
-        const inicio = (paginacion.value.finalizado.recibidos - 1) * itemsPorPagina
-        return filtrados.slice(inicio, inicio + itemsPorPagina)
-    })
+    );
 
     // Funciones de paginación
     const getTotalItems = (tipo, grupo) => {
