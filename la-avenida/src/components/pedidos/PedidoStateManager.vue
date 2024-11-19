@@ -7,9 +7,9 @@
                     <div class="flex gap-2 items-center">
                         <h3 class="text-lg font-semibold">Estado actual: {{ pedido.estado }}</h3>
                         <span :class="[
-              'px-2 py-1 rounded-full text-sm',
-              pedido.estado === 'RECIBIDO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-            ]">
+                            'px-2 py-1 rounded-full text-sm',
+                            pedido.estado === 'FINALIZADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        ]">
                             {{ estadoLabel }}
                         </span>
                     </div>
@@ -20,15 +20,15 @@
             </div>
 
             <!-- Botones de acción según estado -->
-            <div v-if="botonesAccion.length > 0" class="flex gap-2">
+            <div v-if="mostrarBotones && botonesAccion.length > 0" class="flex gap-2">
                 <button v-for="boton in botonesAccion"
                         :key="boton.estado"
                         @click="cambiarEstado(boton.estado)"
                         :disabled="boton.requiereNotas && tieneModificaciones && !notasModificacion"
                         :class="[
-      'px-4 py-2 text-white rounded hover:opacity-90 transition-opacity disabled:opacity-50',
-      boton.class
-    ]">
+                            'px-4 py-2 text-white rounded hover:opacity-90 transition-opacity disabled:opacity-50',
+                            boton.class
+                        ]">
                     {{ boton.label }}
                 </button>
             </div>
@@ -140,6 +140,11 @@
     // Estado local
     const cantidades = ref({});
     const notasModificacion = ref('');
+
+    const mostrarBotones = computed(() => {
+        // No mostrar botones si el pedido está finalizado o cancelado
+        return !['FINALIZADO', 'CANCELADO'].includes(props.pedido.estado);
+    });
 
     // Computed properties base
     const soyOrigen = computed(() =>
@@ -358,26 +363,26 @@
     };
 
     const cambiarEstado = async (nuevoEstado) => {
-        console.log('Cambiando estado a:', nuevoEstado);
+        try {
+            const cambios = {
+                estado: nuevoEstado,
+                detalles: Object.entries(cantidades.value).map(([detalle_id, cantidad_nueva]) => ({
+                    detalle_id: parseInt(detalle_id),
+                    cantidad_anterior: props.pedido.detalles.find(d => d.detalle_id === parseInt(detalle_id)).cantidad_solicitada,
+                    cantidad_nueva
+                })),
+                notas: notasModificacion.value
+            };
 
-        // Solo requerir notas si hay modificaciones
-        if (tieneModificaciones.value && !notasModificacion.value) {
-            alert('Debe ingresar una nota explicando los cambios');
-            return;
+            emit('state-change', cambios);
+
+            // Si el estado es FINALIZADO o CANCELADO, cerrar automáticamente
+            if (['FINALIZADO', 'CANCELADO'].includes(nuevoEstado)) {
+                // Emitir evento especial para estados finales
+                emit('final-state-reached');
+            }
+        } catch (error) {
+            console.error('Error al cambiar estado:', error);
         }
-
-        const cambios = {
-            estado: nuevoEstado,
-            detalles: Object.entries(cantidades.value).map(([detalle_id, cantidad_nueva]) => ({
-                detalle_id: parseInt(detalle_id),
-                cantidad_anterior: props.pedido.detalles.find(d => d.detalle_id === parseInt(detalle_id)).cantidad_solicitada,
-                cantidad_nueva
-            })),
-            // Solo incluir notas si hay modificaciones o se ingresaron explícitamente
-            notas: tieneModificaciones.value || notasModificacion.value ? notasModificacion.value : null
-        };
-
-        console.log('Enviando cambios:', cambios);
-        emit('state-change', cambios);
     };
 </script>

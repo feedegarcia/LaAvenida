@@ -125,9 +125,13 @@
             const response = await axios.patch(`/api/pedidos/${pedidoData.value.pedido_id}/estado`, changes);
             console.log('Respuesta del servidor:', response.data);
 
-            // Recargar pedido después de actualizar
-            await cargarPedido();
-            emit('estadoActualizado');
+            // Emitir evento con los detalles del cambio
+            emit('estadoActualizado', {
+                estado: changes.estado,
+                pedidoId: pedidoData.value.pedido_id,
+                isFinalState: ['FINALIZADO', 'CANCELADO'].includes(changes.estado)
+            });
+
         } catch (error) {
             console.error('Error actualizando estado:', error);
             alert('Error al actualizar el estado del pedido');

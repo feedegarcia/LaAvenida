@@ -17,7 +17,7 @@
 
         <!-- Modal de Detalle de Pedido -->
         <Dialog :open="!!pedidoSeleccionado"
-                @close="pedidoSeleccionado = null"
+                @close="cerrarDetallePedido"
                 class="relative z-50">
             <div class="fixed inset-0 bg-black/30" />
             <div class="fixed inset-0 flex items-center justify-center p-4">
@@ -26,7 +26,7 @@
                         <h3 class="text-lg font-medium">
                             Detalle de Pedido #{{ pedidoSeleccionado?.pedido_id }}
                         </h3>
-                        <button @click="pedidoSeleccionado = null"
+                        <button @click="cerrarDetallePedido"
                                 class="text-gray-500 hover:text-gray-700">
                             <X class="w-5 h-5" />
                         </button>
@@ -35,7 +35,7 @@
                     <div class="p-4 max-h-[80vh] overflow-y-auto">
                         <TimelinePedido v-if="pedidoSeleccionado"
                                         :pedido="pedidoSeleccionado"
-                                        @estadoActualizado="actualizarPedido" />
+                                        @estadoActualizado="manejarCambioEstado" />
                     </div>
                 </DialogPanel>
             </div>
@@ -44,15 +44,58 @@
 </template>
 
 <script setup>
-    import { ref } from 'vue'
-    import { Dialog, DialogPanel } from '@headlessui/vue'
-    import { X } from 'lucide-vue-next'
-    import PedidosKanban from '../components/pedidos/PedidosKanban.vue'
-    import TimelinePedido from '../components/pedidos/TimelinePedido.vue'
-    import axios from '@/utils/axios-config'
+    import { ref } from 'vue';
+    import { Dialog, DialogPanel } from '@headlessui/vue';
+    import { X } from 'lucide-vue-next';
+    import { useRouter } from 'vue-router';
+    import PedidosKanban from '../components/pedidos/PedidosKanban.vue';
+    import TimelinePedido from '../components/pedidos/TimelinePedido.vue';
+    import axios from '@/utils/axios-config';
 
-    const vistaActual = ref('kanban')
-    const pedidoSeleccionado = ref(null)
+    const router = useRouter();
+    const vistaActual = ref('kanban');
+    const pedidoSeleccionado = ref(null);
+
+    const cerrarDetallePedido = () => {
+        pedidoSeleccionado.value = null;
+    };
+
+    const manejarCambioEstado = async ({ estado, pedidoId, isFinalState }) => {
+        try {
+            // Si es un estado final o un cambio de cola, cerrar y redireccionar
+            const estadosQueCambianCola = [
+                'EN_FABRICA',
+                'EN_FABRICA_MODIFICADO',
+                'PREPARADO',
+                'RECIBIDO',
+                'RECIBIDO_CON_DIFERENCIAS',
+                'FINALIZADO',
+                'CANCELADO'
+            ];
+
+            const debeRedireccionar = isFinalState || estadosQueCambianCola.includes(estado);
+
+            if (debeRedireccionar) {
+                // Cerrar el modal
+                cerrarDetallePedido();
+
+                // Forzar la recarga de los datos
+                if (router.currentRoute.value.path === '/pedidos') {
+                    const kanbanComponent = document.querySelector('pedidos-kanban')?.__vueParentComponent?.ctx;
+                    if (kanbanComponent && typeof kanbanComponent.cargarDatos === 'function') {
+                        await kanbanComponent.cargarDatos();
+                    }
+                } else {
+                    await router.push('/pedidos');
+                }
+            } else {
+                // Solo actualizar el pedido actual si no es un estado final
+                await mostrarDetallePedido(pedidoId);
+            }
+        } catch (error) {
+            console.error('Error manejando cambio de estado:', error);
+        }
+    };
 
     const mostrarDetallePedido = async (pedidoId) => {
         try {
@@ -60,16 +103,10 @@
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            })
-            pedidoSeleccionado.value = response.data
+            });
+            pedidoSeleccionado.value = response.data;
         } catch (error) {
-            console.error('Error cargando detalle del pedido:', error)
+            console.error('Error cargando detalle del pedido:', error);
         }
-    }
-
-    const actualizarPedido = async () => {
-        if (pedidoSeleccionado.value) {
-            await mostrarDetallePedido(pedidoSeleccionado.value.pedido_id)
-        }
-    }
+    };
 </script>

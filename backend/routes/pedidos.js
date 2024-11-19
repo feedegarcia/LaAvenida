@@ -386,23 +386,14 @@ router.get('/:id', async (req, res) => {
 });
 
 // Actualizar estado del pedido
-// Actualizar estado del pedido
 router.patch('/:id/estado', async (req, res) => {
     const connection = await pool.getConnection();
     try {
-        const { id } = req.params;  // Añadir esto al inicio
-        console.log('Recibiendo actualización de estado:', {
-            pedidoId: id,
-            cambios: req.body
-        });
-
         await connection.beginTransaction();
 
         const { estado, detalles, notas } = req.body;
         const token = req.headers.authorization.split(' ')[1];
         const decodedToken = jwt.verify(token, 'secret_key');
-
-        console.log('Token decodificado:', decodedToken);
 
         // Insertar en historial
         const [historial] = await connection.query(
@@ -413,13 +404,13 @@ router.patch('/:id/estado', async (req, res) => {
                 (SELECT estado FROM pedido WHERE pedido_id = ?),
                 ?, ?, ?, NOW()
             )`,
-            [id, id, estado, decodedToken.id, notas]  // Quitar motivo aquí
+            [req.params.id, req.params.id, estado, decodedToken.id, notas]
         );
 
-        // Actualizar estado del pedido
+        // Actualizar estado del pedido principal
         await connection.query(
             'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
-            [estado, id]
+            [estado, req.params.id]
         );
 
         // Si hay detalles modificados
@@ -439,33 +430,13 @@ router.patch('/:id/estado', async (req, res) => {
                     ]
                 );
 
-                // Actualizar cantidades
+                // Actualizar cantidades sin modificar el estado del detalle
                 await connection.query(
                     `UPDATE detalle_pedido 
                      SET cantidad_confirmada = ?,
-                         estado = ?
+                         modificado = TRUE
                      WHERE detalle_id = ?`,
-                    [detalle.cantidad_nueva, estado, detalle.detalle_id]
-                );
-            }
-        }
-
-        // Si el estado es RECIBIDO, actualizar stock
-        if (estado === 'RECIBIDO') {
-            const [detallesPedido] = await connection.query(
-                `SELECT producto_id, cantidad_confirmada 
-                 FROM detalle_pedido
-                 WHERE pedido_id = ?`,
-                [id]
-            );
-
-            for (const detalle of detallesPedido) {
-                await connection.query(
-                    `UPDATE stock 
-                     SET cantidad = cantidad + ?,
-                         fecha_actualizacion = NOW()
-                     WHERE producto_id = ?`,
-                    [detalle.cantidad_confirmada, detalle.producto_id]
+                    [detalle.cantidad_nueva, detalle.detalle_id]
                 );
             }
         }

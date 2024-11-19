@@ -380,26 +380,29 @@
 
     const cargarDatos = async () => {
         try {
-            loading.value = true
-            error.value = ''
+            loading.value = true;
+            error.value = '';
 
             const response = await axios.get('http://localhost:3000/api/pedidos', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            })
+            });
 
             // Asegurarnos que pedidos.value sea siempre un array
-            pedidos.value = Array.isArray(response.data) ? response.data : []
+            pedidos.value = Array.isArray(response.data) ? response.data : [];
 
         } catch (err) {
-            console.error('Error cargando pedidos:', err)
-            error.value = 'Error al cargar los pedidos'
-            pedidos.value = []
+            console.error('Error cargando pedidos:', err);
+            error.value = 'Error al cargar los pedidos';
+            pedidos.value = [];
         } finally {
-            loading.value = false
+            loading.value = false;
         }
-    }
+    };
+    defineExpose({
+        recargarPedidos: cargarDatos
+    });
 
     const toggleOrden = () => {
         ordenInvertido.value = !ordenInvertido.value
