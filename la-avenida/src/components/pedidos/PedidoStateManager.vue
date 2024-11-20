@@ -1,36 +1,43 @@
 <template>
     <div class="space-y-4">
-        <!-- Estado actual -->
+        <!-- Estado actual y encabezado -->
         <div class="bg-white p-4 rounded-lg shadow">
             <div class="flex justify-between items-center mb-4">
                 <div>
                     <div class="flex gap-2 items-center">
-                        <h3 class="text-lg font-semibold">Estado actual: {{ pedido.estado }}</h3>
+                        <h3 class="text-lg font-semibold">Estado actual: {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}</h3>
                         <span :class="[
                             'px-2 py-1 rounded-full text-sm',
-                            pedido.estado === 'FINALIZADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            `bg-${pedidoStore.obtenerColorEstado(pedido.estado)}-100`,
+                            `text-${pedidoStore.obtenerColorEstado(pedido.estado)}-800`
                         ]">
-                            {{ estadoLabel }}
+                            {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}
                         </span>
                     </div>
                     <p class="text-sm text-gray-600">
                         Última actualización: {{ formatearFecha(pedido.updated_at) }}
                     </p>
                 </div>
-            </div>
 
-            <!-- Botones de acción según estado -->
-            <div v-if="mostrarBotones && botonesAccion.length > 0" class="flex gap-2">
-                <button v-for="boton in botonesAccion"
-                        :key="boton.estado"
-                        @click="cambiarEstado(boton.estado)"
-                        :disabled="boton.requiereNotas && tieneModificaciones && !notasModificacion"
-                        :class="[
-                            'px-4 py-2 text-white rounded hover:opacity-90 transition-opacity disabled:opacity-50',
-                            boton.class
-                        ]">
-                    {{ boton.label }}
-                </button>
+                <!-- Botones de cambio de estado (solo si no es la sucursal origen o es admin) -->
+                <div v-if="!esSucursalOrigen || authStore.userRole === 'ADMIN'" class="flex gap-2">
+                    <button v-for="boton in botonesAccion"
+                            :key="boton.estado"
+                            @click="cambiarEstado(boton.estado)"
+                            :class="[
+                                'px-4 py-2 text-white rounded hover:opacity-90 transition-opacity',
+                                `bg-${pedidoStore.obtenerColorEstado(boton.estado)}-500`
+                            ]">
+                        {{ boton.label }}
+                    </button>
+
+                    <!-- Botón de cancelar -->
+                    <button v-if="pedidoStore.puedeCancelarPedido(pedido, authStore.user)"
+                            @click="cambiarEstado('CANCELADO')"
+                            class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700">
+                        Cancelar Pedido
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -39,16 +46,16 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cantidad Original</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cantidad Actual</th>
-                        <th v-if="puedeVerCostos" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                            Precio Unit.
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Producto
                         </th>
-                        <th v-if="puedeVerCostos" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                            Subtotal
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                            Cantidad Original
                         </th>
-                        <th v-if="puedeEditarCantidades" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                            Cantidad Actual
+                        </th>
+                        <th v-if="puedeModificar" scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                             Nueva Cantidad
                         </th>
                     </tr>
@@ -56,53 +63,47 @@
                 <tbody class="divide-y divide-gray-200">
                     <tr v-for="detalle in pedido.detalles"
                         :key="detalle.detalle_id"
-                        :class="{ 'bg-yellow-50': detalle.modificado }">
+                        :style="getEstiloFila(detalle)">
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <span class="font-medium">{{ detalle.producto_nombre }}</span>
+                                <!-- Indicador de modificación -->
+                                <span v-if="detalle.modificado_por"
+                                      class="ml-2 text-xs"
+                                      :style="{ color: detalle.modificado_por.color }">
+                                    Modificado por {{ detalle.modificado_por.nombre }}
+                                </span>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right">{{ detalle.cantidad_solicitada }}</td>
                         <td class="px-6 py-4 text-right">
                             {{ detalle.cantidad_confirmada || detalle.cantidad_solicitada }}
                         </td>
-                        <td v-if="puedeVerCostos" class="px-6 py-4 text-right">
-                            $ {{ formatearMoneda(detalle.precio_unitario) }}
-                        </td>
-                        <td v-if="puedeVerCostos" class="px-6 py-4 text-right">
-                            $ {{ formatearMoneda(detalle.precio_unitario * cantidadActual(detalle)) }}
-                        </td>
-                        <td v-if="puedeModificarPedido" class="px-6 py-4 text-right">
+                        <td v-if="puedeModificar" class="px-6 py-4">
                             <div class="flex items-center justify-end gap-2">
                                 <input type="number"
-                                       :value="cantidades[detalle.detalle_id] ?? detalle.cantidad_solicitada"
+                                       :value="cantidades[detalle.detalle_id] ?? cantidadActual(detalle)"
+                                       @input="handleCantidadChange(detalle, $event)"
                                        min="0"
-                                       class="w-20 px-2 py-1 border rounded text-right"
-                                       @input="handleCantidadChange(detalle, $event)">
-                                <button @click="incrementarCantidad(detalle, 1)"
-                                        class="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
-                                    +
-                                </button>
-                                <button @click="incrementarCantidad(detalle, -1)"
-                                        class="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
-                                    -
-                                </button>
+                                       class="w-20 px-2 py-1 border rounded text-right">
+                                <div class="flex gap-1">
+                                    <button @click="incrementarCantidad(detalle, 1)"
+                                            class="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                                        +
+                                    </button>
+                                    <button @click="incrementarCantidad(detalle, -1)"
+                                            class="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                                        -
+                                    </button>
+                                </div>
                             </div>
                         </td>
                     </tr>
                 </tbody>
-                <tfoot v-if="puedeVerCostos">
-                    <tr class="bg-gray-50">
-                        <td colspan="4" class="px-6 py-4 text-right font-medium">Total:</td>
-                        <td class="px-6 py-4 text-right font-medium">
-                            $ {{ formatearMoneda(totalPedido) }}
-                        </td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
 
-        <!-- Notas para cambios -->
+        <!-- Notas para los cambios (solo se muestra si hay modificaciones) -->
         <div v-if="tieneModificaciones" class="bg-white p-4 rounded-lg shadow">
             <label class="block text-sm font-medium text-gray-700 mb-2">
                 Notas sobre los cambios
@@ -112,238 +113,78 @@
                       rows="3"
                       class="w-full border rounded-md p-2"
                       placeholder="Explique el motivo de los cambios realizados..."></textarea>
+
+            <!-- Botón para confirmar cambios -->
+            <div class="mt-4 flex justify-end">
+                <button @click="confirmarCambios"
+                        :disabled="!notasModificacion.trim()"
+                        class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 disabled:opacity-50">
+                    Confirmar Cambios
+                </button>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup>
     import { ref, computed } from 'vue';
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
+    import axios from '@/utils/axios-config';
 
     const props = defineProps({
         pedido: {
             type: Object,
             required: true
-        },
-        userRole: {
-            type: String,
-            required: true
-        },
-        userSucursales: {
-            type: Array,
-            required: true,
-            default: () => []
         }
     });
 
-    const emit = defineEmits(['state-change']);
+    const emit = defineEmits(['update:pedido']);
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
 
-    // Estado local
     const cantidades = ref({});
     const notasModificacion = ref('');
 
-    const mostrarBotones = computed(() => {
-        // No mostrar botones si el pedido está finalizado o cancelado
-        return !['FINALIZADO', 'CANCELADO'].includes(props.pedido.estado);
+    // Computed
+    const puedeModificar = computed(() => {
+        return pedidoStore.puedeModificarPedido(props.pedido, authStore.user);
     });
 
-    // Computed properties base
-    const soyOrigen = computed(() =>
-        props.userSucursales.some(s => s.id === props.pedido.sucursal_origen)
-    );
-
-    const soyDestino = computed(() =>
-        props.userSucursales.some(s => s.id === props.pedido.sucursal_destino)
-    );
-
-    const soyFabrica = computed(() => {
-        console.log('Verificando si soy fábrica:', {
-            userSucursales: props.userSucursales,
-            pedidoOrigen: props.pedido.sucursal_origen,
-            pedidoDestino: props.pedido.sucursal_destino
-        });
-
-        // En este caso, la fábrica es el destino si el pedido está EN_FABRICA
-        if (props.pedido.estado === 'EN_FABRICA') {
-            return props.userSucursales.some(s => s.id === props.pedido.sucursal_destino);
-        }
-
-        // Para otros estados, la fábrica es el origen
-        return props.userSucursales.some(s => s.id === props.pedido.sucursal_origen);
+    const esSucursalOrigen = computed(() => {
+        return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_origen);
     });
 
-    // Permisos
-    const puedeModificarPedido = computed(() => {
-        if (!props.pedido) return false;
-
-        console.log('Verificando permisos para:', {
-            estado: props.pedido.estado,
-            userSucursales: props.userSucursales,
-            pedidoOrigen: props.pedido.sucursal_origen,
-            pedidoDestino: props.pedido.sucursal_destino
-        });
-
-        // Verificar si el usuario tiene la sucursal donde está el pedido
-        const pedidoEnMisSucursales = props.userSucursales.some(sucursal =>
-            sucursal.id === props.pedido.sucursal_destino ||
-            sucursal.id === props.pedido.sucursal_origen
-        );
-
-        console.log('¿Pedido en mis sucursales?', pedidoEnMisSucursales);
-        return pedidoEnMisSucursales;
-    });
-
-    const puedeVerCostos = computed(() => {
-        return ['ADMIN', 'DUEÑO'].includes(props.userRole);
-    });
-
-    // Estados y modificaciones
     const tieneModificaciones = computed(() => {
         return Object.keys(cantidades.value).length > 0;
     });
 
-    const estadoLabel = computed(() => {
-        const labels = {
-            'EN_FABRICA': 'En Fábrica',
-            'PREPARADO': 'Preparado',
-            'RECIBIDO': 'Recibido',
-            'CANCELADO': 'Cancelado',
-            'EN_FABRICA_MODIFICADO': 'Modificado en Fábrica',
-            'RECIBIDO_CON_DIFERENCIAS': 'Con Diferencias',
-            'PREPARADO_MODIFICADO': 'Preparado con Cambios',
-            'FINALIZADO': 'Finalizado'
-        };
-        return labels[props.pedido.estado] || props.pedido.estado;
-    });
-
-    // Botones de acción
     const botonesAccion = computed(() => {
-        // Primero verificamos si tenemos permisos
-        if (!puedeModificarPedido.value) {
-            console.log('Usuario no tiene permisos para modificar');
-            return [];
+        return pedidoStore.obtenerAccionesPermitidas(props.pedido.estado, authStore.user.rol)
+            .map(estado => ({
+                estado,
+                label: pedidoStore.obtenerEtiquetaEstado(estado)
+            }));
+    });
+
+    // Methods
+    const getEstiloFila = (detalle) => {
+        if (detalle.modificado_por) {
+            return {
+                borderLeft: `4px solid ${detalle.modificado_por.color}`,
+                backgroundColor: `${detalle.modificado_por.color}10`
+            };
         }
-
-        console.log('Calculando botones para:', {
-            estado: props.pedido.estado,
-            soyOrigen: soyOrigen.value,
-            soyDestino: soyDestino.value,
-            soyFabrica: soyFabrica.value
-        });
-
-        const botones = [];
-
-        switch (props.pedido.estado) {
-            case 'EN_FABRICA':
-                // Si soy la fábrica (destino en este estado)
-                if (soyDestino.value) {
-                    botones.push({
-                        estado: tieneModificaciones.value ? 'EN_FABRICA_MODIFICADO' : 'PREPARADO',
-                        label: tieneModificaciones.value ? 'Enviar con modificaciones' : 'Enviar pedido',
-                        class: 'bg-blue-500'
-                    });
-                }
-                break;
-
-            case 'EN_FABRICA_MODIFICADO':
-                // Si soy quien originó el pedido
-                if (soyOrigen.value) {
-                    botones.push(
-                        {
-                            estado: 'RECIBIDO',
-                            label: 'Aceptar cambios',
-                            class: 'bg-green-500'
-                        },
-                        {
-                            estado: 'RECIBIDO_CON_DIFERENCIAS',
-                            label: 'Reportar diferencias',
-                            class: 'bg-yellow-500',
-                            requiereNotas: true
-                        }
-                    );
-                }
-                break;
-
-            case 'PREPARADO':
-                // Si soy quien originó el pedido
-                if (soyOrigen.value) {
-                    botones.push(
-                        {
-                            estado: 'RECIBIDO',
-                            label: 'Confirmar recepción',
-                            class: 'bg-green-500'
-                        }
-                    );
-                }
-                break;
-
-            case 'RECIBIDO_CON_DIFERENCIAS':
-                // Si soy la fábrica (destino)
-                if (soyDestino.value) {
-                    botones.push(
-                        {
-                            estado: 'RECIBIDO',
-                            label: 'Confirmar diferencias',
-                            class: 'bg-green-500'
-                        },
-                        {
-                            estado: 'PREPARADO_MODIFICADO',
-                            label: 'Rechazar diferencias',
-                            class: 'bg-red-500'
-                        }
-                    );
-                }
-                break;
-
-            case 'RECIBIDO':
-                // Si soy quien originó el pedido
-                if (soyOrigen.value) {
-                    botones.push({
-                        estado: 'FINALIZADO',
-                        label: 'Finalizar pedido',
-                        class: 'bg-green-600'
-                    });
-                }
-                break;
-        }
-
-        console.log('Botones generados:', botones);
-        return botones;
-    });
-
-    const puedeEditarCantidades = computed(() => {
-        // No permitir edición si está finalizado
-        if (props.pedido.estado === 'FINALIZADO') return false;
-
-        return puedeModificarPedido.value;
-    });
-
-    const totalPedido = computed(() => {
-        return props.pedido.detalles.reduce((total, detalle) => {
-            return total + (detalle.precio_unitario * cantidadActual(detalle));
-        }, 0);
-    });
-
-    // Métodos
-    const formatearFecha = (fecha) => {
-        if (!fecha) return 'Sin actualización';
-        return new Date(fecha).toLocaleString('es-AR');
-    };
-
-    const formatearMoneda = (valor) => {
-        return valor.toLocaleString('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+        return {};
     };
 
     const cantidadActual = (detalle) => {
-        return cantidades.value[detalle.detalle_id] ??
-            (detalle.cantidad_confirmada || detalle.cantidad_solicitada);
+        return detalle.cantidad_confirmada || detalle.cantidad_solicitada;
     };
 
     const handleCantidadChange = (detalle, event) => {
         const cantidad = parseInt(event.target.value) || 0;
-        if (cantidad === detalle.cantidad_solicitada) {
+        if (cantidad === cantidadActual(detalle)) {
             delete cantidades.value[detalle.detalle_id];
         } else {
             cantidades.value[detalle.detalle_id] = cantidad;
@@ -351,38 +192,55 @@
     };
 
     const incrementarCantidad = (detalle, delta) => {
-        const cantidadActualValue = cantidades.value[detalle.detalle_id] ??
-            detalle.cantidad_solicitada;
-        const nuevaCantidad = Math.max(0, cantidadActualValue + delta);
+        const actual = cantidades.value[detalle.detalle_id] ?? cantidadActual(detalle);
+        handleCantidadChange(detalle, { target: { value: Math.max(0, actual + delta) } });
+    };
 
-        if (nuevaCantidad === detalle.cantidad_solicitada) {
-            delete cantidades.value[detalle.detalle_id];
-        } else {
-            cantidades.value[detalle.detalle_id] = nuevaCantidad;
+    const confirmarCambios = async () => {
+        if (!notasModificacion.value.trim()) return;
+
+        try {
+            const cambios = {
+                detalles: Object.entries(cantidades.value).map(([detalle_id, cantidad]) => ({
+                    detalle_id: parseInt(detalle_id),
+                    cantidad_anterior: props.pedido.detalles.find(d => d.detalle_id === parseInt(detalle_id))
+                        .cantidad_solicitada,
+                    cantidad_nueva: cantidad
+                })),
+                notas: notasModificacion.value,
+                estado: esSucursalOrigen.value ? props.pedido.estado : 'EN_FABRICA_MODIFICADO'
+            };
+
+            await axios.patch(`/api/pedidos/${props.pedido.pedido_id}/estado`, cambios);
+
+            // Limpiar estado local
+            cantidades.value = {};
+            notasModificacion.value = '';
+
+            // Recargar pedido
+            const response = await axios.get(`/api/pedidos/${props.pedido.pedido_id}`);
+            emit('update:pedido', response.data);
+        } catch (error) {
+            console.error('Error al guardar cambios:', error);
         }
     };
 
     const cambiarEstado = async (nuevoEstado) => {
         try {
-            const cambios = {
-                estado: nuevoEstado,
-                detalles: Object.entries(cantidades.value).map(([detalle_id, cantidad_nueva]) => ({
-                    detalle_id: parseInt(detalle_id),
-                    cantidad_anterior: props.pedido.detalles.find(d => d.detalle_id === parseInt(detalle_id)).cantidad_solicitada,
-                    cantidad_nueva
-                })),
-                notas: notasModificacion.value
-            };
+            await axios.patch(`/api/pedidos/${props.pedido.pedido_id}/estado`, {
+                estado: nuevoEstado
+            });
 
-            emit('state-change', cambios);
-
-            // Si el estado es FINALIZADO o CANCELADO, cerrar automáticamente
-            if (['FINALIZADO', 'CANCELADO'].includes(nuevoEstado)) {
-                // Emitir evento especial para estados finales
-                emit('final-state-reached');
-            }
+            // Recargar pedido
+            const response = await axios.get(`/api/pedidos/${props.pedido.pedido_id}`);
+            emit('update:pedido', response.data);
         } catch (error) {
             console.error('Error al cambiar estado:', error);
         }
+    };
+
+    const formatearFecha = (fecha) => {
+        if (!fecha) return 'Sin actualización';
+        return new Date(fecha).toLocaleString('es-AR');
     };
 </script>

@@ -5,7 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 // Middleware de validación de sucursal
 const validateSucursal = (req, res, next) => {
-    const { nombre, direccion, telefono, tipo, horario_atencion } = req.body;
+    const { nombre, direccion, telefono, tipo, horario_atencion, color } = req.body;
     if (!nombre || !direccion || !telefono || !tipo || !horario_atencion) {
         return res.status(400).json({
             message: 'Todos los campos son requeridos',
@@ -16,6 +16,12 @@ const validateSucursal = (req, res, next) => {
         return res.status(400).json({
             message: 'Tipo de sucursal inválido',
             allowedTypes: ['FABRICA_VENTA', 'SOLO_VENTA']
+        });
+    }
+    // Validar formato de color si se proporciona
+    if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+        return res.status(400).json({
+            message: 'Formato de color inválido. Debe ser un color hexadecimal (ej: #FF0000)'
         });
     }
     next();
@@ -88,7 +94,7 @@ router.post('/', authenticateToken, validateSucursal, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { nombre, direccion, telefono, tipo, horario_atencion, latitud, longitud, zona_clima } = req.body;
+        const { nombre, direccion, telefono, tipo, horario_atencion, color = '#FFFFFF', latitud, longitud, zona_clima } = req.body;
 
         const [result] = await connection.query(
             `INSERT INTO SUCURSAL (
@@ -101,9 +107,10 @@ router.post('/', authenticateToken, validateSucursal, async (req, res) => {
                 activo,
                 latitud,
                 longitud,
-                zona_clima
-            ) VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)`,
-            [1, nombre, direccion, telefono, tipo, horario_atencion, latitud || null, longitud || null, zona_clima || null]
+                zona_clima,
+                color
+            ) VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?)`,
+            [1, nombre, direccion, telefono, tipo, horario_atencion, latitud || null, longitud || null, zona_clima || null, color]
         );
 
         await connection.commit();
@@ -128,18 +135,7 @@ router.patch('/:id', authenticateToken, validateSucursal, async (req, res) => {
         await connection.beginTransaction();
 
         const { id } = req.params;
-        const { nombre, direccion, telefono, tipo, horario_atencion, latitud, longitud, zona_clima } = req.body;
-
-        // Verificar si la sucursal existe
-        const [sucursal] = await connection.query(
-            'SELECT sucursal_id FROM SUCURSAL WHERE sucursal_id = ?',
-            [id]
-        );
-
-        if (sucursal.length === 0) {
-            await connection.rollback();
-            return res.status(404).json({ message: 'Sucursal no encontrada' });
-        }
+        const { nombre, direccion, telefono, tipo, horario_atencion, color, latitud, longitud, zona_clima } = req.body;
 
         await connection.query(
             `UPDATE SUCURSAL 
@@ -150,9 +146,10 @@ router.patch('/:id', authenticateToken, validateSucursal, async (req, res) => {
                  horario_atencion = ?,
                  latitud = ?,
                  longitud = ?,
-                 zona_clima = ?
+                 zona_clima = ?,
+                 color = ?
              WHERE sucursal_id = ?`,
-            [nombre, direccion, telefono, tipo, horario_atencion, latitud || null, longitud || null, zona_clima || null, id]
+            [nombre, direccion, telefono, tipo, horario_atencion, latitud || null, longitud || null, zona_clima || null, color || '#FFFFFF', id]
         );
 
         await connection.commit();

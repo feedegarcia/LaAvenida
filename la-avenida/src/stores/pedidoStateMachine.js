@@ -7,26 +7,22 @@ export const usePedidoStore = defineStore('pedido', {
         estadosPedido: {
             BORRADOR: {
                 siguientesEstados: ['EN_FABRICA', 'CANCELADO'],
-                permisos: ['CREAR_PEDIDO', 'CANCELAR_PEDIDO'],
+                permisos: ['CREAR_PEDIDO', 'MODIFICAR_PEDIDO', 'CANCELAR_PEDIDO'],
                 roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
                 label: 'Borrador',
                 color: 'gray',
                 permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    CANCELAR: 'ORIGEN',
-                    VER: 'ORIGEN'
+                    MODIFICAR: 'AMBOS' // Tanto origen como destino pueden modificar
                 }
             },
             EN_FABRICA: {
-                siguientesEstados: ['PREPARADO', 'EN_FABRICA_MODIFICADO', 'CANCELADO'],
-                permisos: ['MODIFICAR_PEDIDO', 'CANCELAR_PEDIDO'],
-                roles: ['FABRICA', 'ADMIN', 'DUEÑO'],
+                siguientesEstados: ['PREPARADO', 'CANCELADO'],
+                permisos: ['MODIFICAR_PEDIDO'],
+                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO', 'FABRICA'],
                 label: 'En Fábrica',
                 color: 'blue',
                 permisosEspeciales: {
-                    MODIFICAR: 'DESTINO',
-                    CANCELAR: 'ORIGEN',
-                    VER: 'AMBOS'
+                    MODIFICAR: 'AMBOS'
                 }
             },
             EN_FABRICA_MODIFICADO: {
@@ -146,16 +142,25 @@ export const usePedidoStore = defineStore('pedido', {
         },
 
         puedeModificarPedido(pedido, usuario) {
+            // Si es estado final, nadie puede modificar
+            if (this.estadosFinales.includes(pedido.estado)) {
+                return false;
+            }
+
             const estado = this.estadosPedido[pedido.estado];
             if (!estado) return false;
 
-            // Verificar rol
-            if (!estado.roles.includes(usuario.rol)) return false;
+            // Admin y Dueño siempre pueden modificar (excepto estados finales)
+            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) {
+                return true;
+            }
 
-            // Admin y Dueño tienen permisos especiales
-            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
+            // Verificar si el usuario tiene el rol necesario
+            if (!estado.roles.includes(usuario.rol)) {
+                return false;
+            }
 
-            // Verificar permisos de sucursal
+            // Verificar permisos especiales de modificación
             const tipoPermiso = estado.permisosEspeciales?.MODIFICAR;
             switch (tipoPermiso) {
                 case 'ORIGEN':
@@ -213,3 +218,13 @@ export const usePedidoStore = defineStore('pedido', {
         todosLosEstados: (state) => Object.keys(state.estadosPedido),
 
         estadosActivos: (state) =>
+            Object.entries(state.estadosPedido)
+                .filter(([, config]) => config.siguientesEstados.length > 0)
+                .map(([estado]) => estado),
+
+        estadosFinales: (state) =>
+            Object.entries(state.estadosPedido)
+                .filter(([, config]) => config.siguientesEstados.length === 0)
+                .map(([estado]) => estado)
+    }
+}); 

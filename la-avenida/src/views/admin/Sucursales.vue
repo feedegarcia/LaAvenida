@@ -1,5 +1,4 @@
-﻿
-<template>
+﻿<template>
     <div>
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-avenida-black">Gestión de Sucursales</h2>
@@ -48,6 +47,9 @@
                                 </span>
                             </div>
                         </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Color
+                        </th>
                         <th @click="sortBy('activo')"
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
                             <div class="flex items-center space-x-1">
@@ -63,7 +65,10 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    <tr v-for="sucursal in sortedSucursales" :key="sucursal.sucursal_id" class="hover:bg-gray-50">
+                    <tr v-for="sucursal in sortedSucursales"
+                        :key="sucursal.sucursal_id"
+                        class="hover:bg-gray-50"
+                        :style="{ borderLeft: `4px solid ${sucursal.color || '#FFFFFF'}` }">
                         <td class="px-6 py-4 whitespace-nowrap">{{ sucursal.nombre }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ sucursal.direccion }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -74,6 +79,16 @@
                                 }">
                                 {{ sucursal.tipo === 'FABRICA_VENTA' ? 'Fábrica y Venta' : 'Solo Venta' }}
                             </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 rounded border"
+                                     :style="{
+                                         backgroundColor: sucursal.color || '#FFFFFF',
+                                         borderColor: sucursal.color === '#FFFFFF' ? '#D1D5DB' : sucursal.color
+                                     }"></div>
+                                <span class="text-sm text-gray-600">{{ sucursal.color || '#FFFFFF' }}</span>
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span :class="{
@@ -109,84 +124,85 @@
 </template>
 
 <script setup>
-    import { ref, onMounted, computed } from 'vue'
-    import axios from 'axios'
-    import SucursalModal from '../../components/sucursales/SucursalModal.vue'
-    const showInactive = ref(false)
-    const editingSucursal = ref(null)
-    const sucursales = ref([])
-    const showModal = ref(false)
-    const loading = ref(false)
-    const error = ref('')
+    import { ref, onMounted, computed } from 'vue';
+    import axios from 'axios';
+    import SucursalModal from '../../components/sucursales/SucursalModal.vue';
+
+    const showInactive = ref(false);
+    const editingSucursal = ref(null);
+    const sucursales = ref([]);
+    const showModal = ref(false);
+    const loading = ref(false);
+    const error = ref('');
 
     // Ordenamiento
-    const sortKey = ref('nombre')
-    const sortOrder = ref('asc')
+    const sortKey = ref('nombre');
+    const sortOrder = ref('asc');
 
     const sortBy = (key) => {
         if (sortKey.value === key) {
-            sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+            sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
         } else {
-            sortKey.value = key
-            sortOrder.value = 'asc'
+            sortKey.value = key;
+            sortOrder.value = 'asc';
         }
-    }
+    };
 
     const sortedSucursales = computed(() => {
-        let filtered = [...sucursales.value]
+        let filtered = [...sucursales.value];
 
         // Aplicar filtro de activos/inactivos
         if (!showInactive.value) {
-            filtered = filtered.filter(s => s.activo)
+            filtered = filtered.filter(s => s.activo);
         }
 
         // Aplicar ordenamiento
         return filtered.sort((a, b) => {
-            let aValue = a[sortKey.value]
-            let bValue = b[sortKey.value]
+            let aValue = a[sortKey.value];
+            let bValue = b[sortKey.value];
 
             if (typeof aValue === 'boolean') {
-                aValue = aValue ? 1 : 0
-                bValue = bValue ? 1 : 0
+                aValue = aValue ? 1 : 0;
+                bValue = bValue ? 1 : 0;
             }
 
             if (typeof aValue === 'string') {
-                aValue = aValue.toLowerCase()
-                bValue = bValue.toLowerCase()
+                aValue = aValue.toLowerCase();
+                bValue = bValue.toLowerCase();
             }
 
-            if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1
-            if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1
-            return 0
-        })
-    })
+            if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
+            return 0;
+        });
+    });
 
     const loadSucursales = async () => {
         try {
-            loading.value = true
+            loading.value = true;
             const response = await axios.get('http://localhost:3000/api/sucursales', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            })
-            sucursales.value = response.data
+            });
+            sucursales.value = response.data;
         } catch (err) {
-            console.error('Error cargando sucursales:', err)
-            error.value = 'Error al cargar sucursales'
+            console.error('Error cargando sucursales:', err);
+            error.value = 'Error al cargar sucursales';
         } finally {
-            loading.value = false
+            loading.value = false;
         }
-    }
+    };
 
     const editSucursal = (sucursal) => {
-        editingSucursal.value = sucursal
-        showModal.value = true
-    }
+        editingSucursal.value = sucursal;
+        showModal.value = true;
+    };
 
     const crearNuevaSucursal = () => {
-        editingSucursal.value = null
-        showModal.value = true
-    }
+        editingSucursal.value = null;
+        showModal.value = true;
+    };
 
     const toggleSucursalStatus = async (sucursal) => {
         try {
@@ -198,17 +214,15 @@
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 }
-            )
-            await loadSucursales()
+            );
+            await loadSucursales();
         } catch (err) {
-            console.error('Error actualizando estado:', err)
-            error.value = 'Error al actualizar estado de la sucursal'
+            console.error('Error actualizando estado:', err);
+            error.value = 'Error al actualizar estado de la sucursal';
         }
-    }
+    };
 
     onMounted(() => {
-        loadSucursales()
-    })
-
+        loadSucursales();
+    });
 </script>
-

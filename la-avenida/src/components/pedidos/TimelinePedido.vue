@@ -1,17 +1,15 @@
-﻿<template>
+﻿<!-- src/components/pedidos/TimelinePedido.vue -->
+<template>
     <div class="p-4">
-        <!-- Loading state -->
         <div v-if="loading" class="text-center py-4">
             <p>Cargando pedido...</p>
         </div>
 
-        <!-- Error state -->
-        <div v-if="error" class="text-red-500 text-center py-4">
+        <div v-else-if="error" class="text-red-500 text-center py-4">
             <p>{{ error }}</p>
         </div>
 
-        <!-- Content only shown when pedidoData exists -->
-        <template v-if="pedidoData">
+        <template v-else-if="pedidoData">
             <!-- Información principal del pedido -->
             <div class="mb-6 grid grid-cols-2 gap-4">
                 <div class="space-y-2">
@@ -36,11 +34,11 @@
                 </div>
             </div>
 
-            <!-- Solo renderizar PedidoStateManager cuando tengamos datos -->
-            <PedidoStateManager v-if="pedidoData && currentUser"
+            <!-- PedidoStateManager solo si el usuario tiene permisos -->
+            <PedidoStateManager v-if="pedidoStore.puedeVerPedido(pedidoData, authStore.user)"
                                 :pedido="pedidoData"
-                                :user-role="currentUser.rol"
-                                :user-sucursales="currentUser.sucursales"
+                                :user-role="authStore.user.rol"
+                                :user-sucursales="authStore.user.sucursales"
                                 @state-change="handleStateChange" />
 
             <!-- Historial de cambios -->
@@ -50,8 +48,19 @@
                     <div v-for="(cambio, index) in historialCambios"
                          :key="index"
                          class="bg-gray-50 p-4 rounded-lg">
-                        <p class="font-medium">{{ cambio.estado }}</p>
-                        <p class="text-sm text-gray-600">{{ formatearFechaCompleta(cambio.fecha) }}</p>
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span :class="[
+                  'px-2 py-1 rounded-full text-xs',
+                  `bg-${pedidoStore.obtenerColorEstado(cambio.estado_nuevo)}-100`,
+                  `text-${pedidoStore.obtenerColorEstado(cambio.estado_nuevo)}-800`
+                ]">
+                                    {{ pedidoStore.obtenerEtiquetaEstado(cambio.estado_nuevo) }}
+                                </span>
+                                <p class="mt-1 text-sm text-gray-600">{{ formatearFechaCompleta(cambio.fecha) }}</p>
+                            </div>
+                            <span class="text-sm text-gray-500">{{ cambio.usuario }}</span>
+                        </div>
                         <p v-if="cambio.notas" class="mt-2 text-sm">{{ cambio.notas }}</p>
                     </div>
                 </div>
@@ -59,12 +68,13 @@
         </template>
     </div>
 </template>
+
 <script setup>
-    import { ref, onMounted, computed, watch } from 'vue'; 
+    import { ref, onMounted, watch } from 'vue';
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
     import axios from '@/utils/axios-config';
     import PedidoStateManager from './PedidoStateManager.vue';
-    import { useAuthStore } from '@/stores/auth';
-    import { jwtDecode } from 'jwt-decode';
 
     const props = defineProps({
         pedido: {
@@ -83,21 +93,8 @@
     const loading = ref(false);
     const error = ref('');
 
-    const currentUser = computed(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return null;
-        try {
-            const decoded = jwtDecode(token);
-            console.log('Token decodificado:', decoded);
-            return {
-                rol: decoded.rol,
-                sucursales: decoded.sucursales || []
-            };
-        } catch {
-            console.error('Error decodificando token');
-            return null;
-        }
-    });
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
 
     const formatearFecha = (fecha) => {
         if (!fecha) return '-';
@@ -121,20 +118,16 @@
 
     const handleStateChange = async (changes) => {
         try {
-            console.log('Recibiendo cambios de estado:', changes);
-            const response = await axios.patch(`/api/pedidos/${pedidoData.value.pedido_id}/estado`, changes);
-            console.log('Respuesta del servidor:', response.data);
-
-            // Emitir evento con los detalles del cambio
+            await axios.patch(`/api/pedidos/${pedidoData.value.pedido_id}/estado`, changes);
+            await cargarPedido();
             emit('estadoActualizado', {
                 estado: changes.estado,
                 pedidoId: pedidoData.value.pedido_id,
-                isFinalState: ['FINALIZADO', 'CANCELADO'].includes(changes.estado)
+                isFinalState: pedidoStore.estadosFinales.includes(changes.estado)
             });
-
         } catch (error) {
             console.error('Error actualizando estado:', error);
-            alert('Error al actualizar el estado del pedido');
+            throw error;
         }
     };
 
@@ -150,9 +143,7 @@
             }
 
             if (props.id) {
-                console.log('Cargando pedido con ID:', props.id);
                 const response = await axios.get(`/api/pedidos/${props.id}`);
-                console.log('Datos del pedido recibidos:', response.data);
                 pedidoData.value = response.data;
                 await cargarHistorial(props.id);
             }
@@ -170,11 +161,9 @@
             historialCambios.value = response.data;
         } catch (error) {
             console.error('Error cargando historial:', error);
-            // No establecemos error.value aquí para no sobreescribir otros errores más críticos
         }
     };
 
-    // Watch para props
     watch(() => props.pedido, (newPedido) => {
         if (newPedido) {
             pedidoData.value = newPedido;

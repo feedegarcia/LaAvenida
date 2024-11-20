@@ -1,13 +1,12 @@
-const jwt = require('jsonwebtoken');
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const jwt = require('jsonwebtoken');
 
 // Crear nuevo pedido
 router.post('/', async (req, res) => {
     const connection = await pool.getConnection();
     try {
-        console.log('Creando nuevo pedido:', req.body);
         await connection.beginTransaction();
 
         const {
@@ -19,7 +18,6 @@ router.post('/', async (req, res) => {
             notas
         } = req.body;
 
-        // Insertar pedido
         const [result] = await connection.query(
             `INSERT INTO pedido (
                 sucursal_origen,
@@ -35,7 +33,6 @@ router.post('/', async (req, res) => {
 
         const pedidoId = result.insertId;
 
-        // Insertar detalles
         for (const detalle of detalles) {
             await connection.query(
                 `INSERT INTO detalle_pedido (
@@ -48,20 +45,7 @@ router.post('/', async (req, res) => {
             );
         }
 
-        // Actualizar total del pedido
-        await connection.query(
-            `UPDATE pedido 
-             SET total = (
-                 SELECT SUM(cantidad_solicitada * precio_unitario)
-                 FROM detalle_pedido 
-                 WHERE pedido_id = ?
-             )
-             WHERE pedido_id = ?`,
-            [pedidoId, pedidoId]
-        );
-
         await connection.commit();
-
         res.status(201).json({
             message: 'Pedido creado exitosamente',
             pedido_id: pedidoId
@@ -78,72 +62,140 @@ router.post('/', async (req, res) => {
         connection.release();
     }
 });
-// Modificar cantidades del pedido
-router.patch('/:id/cantidades', async (req, res) => {
+
+// Obtener todos los pedidos
+router.get('/', async (req, res) => {
+    try {
+        const [pedidos] = await pool.query(`
+            SELECT p.*, 
+                   EXISTS(
+                       SELECT 1 
+                       FROM solicitud_modificacion_pedido smp 
+                       WHERE smp.pedido_id = p.pedido_id 
+                       AND smp.estado = 'PENDIENTE'
+                   ) as tiene_solicitud_pendiente
+            FROM vw_pedidos_seguimiento p
+            ORDER BY p.fecha_pedido DESC
+        `);
+
+        res.json(pedidos);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({
+            message: 'Error al obtener pedidos',
+            error: error.message
+        });
+    }
+});
+// Actualizar estado del pedido
+router.patch('/:id/estado', async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { id } = req.params;
-        const { detalles, notas } = req.body;
+        const { estado, detalles, notas } = req.body;
         const token = req.headers.authorization.split(' ')[1];
         const decodedToken = jwt.verify(token, 'secret_key');
 
-        // Registrar modificación
-        const [result] = await connection.query(
-            `INSERT INTO modificacion_pedido (
-                pedido_id, usuario_id, notas, fecha
-            ) VALUES (?, ?, ?, NOW())`,
-            [id, decodedToken.id, notas]
+        // Obtener información del pedido actual
+        const [pedidoActual] = await connection.query(
+            'SELECT estado, sucursal_origen FROM pedido WHERE pedido_id = ?',
+            [req.params.id]
         );
 
-        const modificacionId = result.insertId;
+        if (!pedidoActual.length) {
+            throw new Error('Pedido no encontrado');
+        }
 
-        // Actualizar cantidades
-        for (const detalle of detalles) {
-            await connection.query(
-                `UPDATE detalle_pedido 
-                 SET cantidad_confirmada = ?,
-                     modificado = TRUE
-                 WHERE detalle_id = ?`,
-                [detalle.cantidad_nueva, detalle.detalle_id]
+        // Obtener información de la sucursal del usuario
+        const [userSucursal] = await connection.query(`
+            SELECT s.*, us.sucursal_id 
+            FROM usuario_sucursal us 
+            JOIN sucursal s ON us.sucursal_id = s.sucursal_id 
+            WHERE us.usuario_id = ? AND us.activo = 1`,
+            [decodedToken.id]
+        );
+
+        const esSucursalOrigen = userSucursal.some(s =>
+            s.sucursal_id === pedidoActual[0].sucursal_origen
+        );
+
+        // Si hay detalles modificados
+        if (detalles?.length > 0) {
+            // Insertar en historial
+            const [historial] = await connection.query(
+                `INSERT INTO historial_pedido (
+                    pedido_id, estado_anterior, estado_nuevo, 
+                    usuario_id, notas, fecha,
+                    sucursal_id
+                ) VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
+                [
+                    req.params.id,
+                    pedidoActual[0].estado,
+                    esSucursalOrigen ? pedidoActual[0].estado : estado,
+                    decodedToken.id,
+                    notas,
+                    userSucursal[0].sucursal_id
+                ]
             );
 
-            // Registrar cambio
+            // Actualizar detalles
+            for (const detalle of detalles) {
+                // Registrar cambio
+                await connection.query(
+                    `INSERT INTO detalle_cambio (
+                        historial_id, detalle_id, 
+                        cantidad_anterior, cantidad_nueva
+                    ) VALUES (?, ?, ?, ?)`,
+                    [historial.insertId, detalle.detalle_id, detalle.cantidad_anterior, detalle.cantidad_nueva]
+                );
+
+                // Actualizar cantidad
+                await connection.query(
+                    `UPDATE detalle_pedido 
+                     SET cantidad_confirmada = ?,
+                         modificado = TRUE,
+                         modificado_por_sucursal = ?,
+                         fecha_modificacion = NOW()
+                     WHERE detalle_id = ?`,
+                    [detalle.cantidad_nueva, userSucursal[0].sucursal_id, detalle.detalle_id]
+                );
+            }
+
+            // Solo actualizar estado si no es la sucursal origen
+            if (!esSucursalOrigen) {
+                await connection.query(
+                    'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+                    [estado, req.params.id]
+                );
+            }
+        } else {
+            // Si no hay modificaciones, solo cambio de estado
             await connection.query(
-                `INSERT INTO detalle_modificacion (
-                    modificacion_id, detalle_id, 
-                    cantidad_anterior, cantidad_nueva
-                ) VALUES (?, ?, ?, ?)`,
-                [modificacionId, detalle.detalle_id,
-                    detalle.cantidad_anterior, detalle.cantidad_nueva]
+                'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+                [estado, req.params.id]
             );
         }
 
-        // Actualizar total del pedido
-        await connection.query(
-            `UPDATE pedido 
-             SET total = (
-                 SELECT SUM(COALESCE(cantidad_confirmada, cantidad_solicitada) * precio_unitario)
-                 FROM detalle_pedido 
-                 WHERE pedido_id = ?
-             )
-             WHERE pedido_id = ?`,
-            [id, id]
-        );
-
         await connection.commit();
-        res.json({ message: 'Cantidades actualizadas exitosamente' });
+        res.json({
+            message: 'Pedido actualizado exitosamente',
+            estado: esSucursalOrigen ? pedidoActual[0].estado : estado
+        });
+
     } catch (error) {
         await connection.rollback();
-        res.status(500).json({ error: error.message });
+        console.error('Error en actualización de pedido:', error);
+        res.status(500).json({
+            error: error.message,
+            details: error.stack
+        });
     } finally {
         connection.release();
     }
-
-
 });
-// Obtener historial de cambios de estado
+
+// Obtener historial de cambios
 router.get('/:id/historial', async (req, res) => {
     try {
         const [historial] = await pool.query(`
@@ -170,173 +222,6 @@ router.get('/:id/historial', async (req, res) => {
     }
 });
 
-// Obtener notas de un pedido
-router.get('/:id/notas', async (req, res) => {
-    let connection;
-    try {
-        connection = await pool.getConnection();
-        const [notas] = await connection.query(
-            `SELECT n.nota_id, n.texto, n.fecha_creacion,
-                    s.nombre as sucursal_nombre,
-                    u.nombre as usuario_nombre
-             FROM notas_pedido n
-             JOIN usuario u ON n.usuario_id = u.usuario_id
-             JOIN sucursal s ON n.sucursal_id = s.sucursal_id
-             WHERE n.pedido_id = ?
-             ORDER BY n.fecha_creacion DESC`,
-            [req.params.id]
-        );
-        res.json(notas);
-    } catch (error) {
-        console.error('Error al obtener notas:', error);
-        res.status(500).json({
-            message: 'Error al obtener notas',
-            error: error.message
-        });
-    } finally {
-        if (connection) {
-            connection.release();
-        }
-    }
-});
-
-// Agregar nota a un pedido
-router.post('/:id/notas', async (req, res) => {
-    let connection;
-    try {
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        const { id } = req.params;
-        const { texto } = req.body;
-        const token = req.headers.authorization.split(' ')[1];
-        const decodedToken = jwt.verify(token, 'secret_key');
-
-        // Obtener información de la sucursal del usuario
-        const [userSucursales] = await connection.query(
-            `SELECT s.* 
-             FROM usuario_sucursal us 
-             JOIN sucursal s ON us.sucursal_id = s.sucursal_id 
-             WHERE us.usuario_id = ? AND us.activo = 1
-             LIMIT 1`,
-            [decodedToken.id]
-        );
-
-        if (!userSucursales.length) {
-            throw new Error('Usuario no tiene sucursal asignada');
-        }
-
-        const sucursal = userSucursales[0];
-
-        // Insertar la nota
-        await connection.query(
-            `INSERT INTO notas_pedido 
-             (pedido_id, usuario_id, sucursal_id, texto, fecha_creacion) 
-             VALUES (?, ?, ?, ?, NOW())`,
-            [id, decodedToken.id, sucursal.sucursal_id, texto]
-        );
-
-        await connection.commit();
-
-        // Devolver la nota con la información completa
-        const [notaInsertada] = await connection.query(
-            `SELECT n.*, u.nombre as usuario_nombre, s.nombre as sucursal_nombre
-             FROM notas_pedido n
-             JOIN usuario u ON n.usuario_id = u.usuario_id
-             JOIN sucursal s ON n.sucursal_id = s.sucursal_id
-             WHERE n.nota_id = LAST_INSERT_ID()`
-        );
-
-        res.json({
-            message: 'Nota agregada exitosamente',
-            nota: notaInsertada[0]
-        });
-    } catch (error) {
-        if (connection) {
-            await connection.rollback();
-        }
-        console.error('Error en agregar nota:', error);
-        res.status(500).json({
-            message: 'Error al agregar nota',
-            error: error.message
-        });
-    } finally {
-        if (connection) {
-            connection.release();
-        }
-    }
-});
-
-// Obtener todos los pedidos con información completa
-router.get('/', async (req, res) => {
-    try {
-        const [pedidos] = await pool.query(`
-            SELECT p.*, 
-                   EXISTS(
-                       SELECT 1 
-                       FROM solicitud_modificacion_pedido smp 
-                       WHERE smp.pedido_id = p.pedido_id 
-                       AND smp.estado = 'PENDIENTE'
-                   ) as tiene_solicitud_pendiente
-            FROM vw_pedidos_seguimiento p
-            ORDER BY p.fecha_pedido DESC
-        `);
-
-        res.json(pedidos);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({
-            message: 'Error al obtener pedidos',
-            error: error.message
-        });
-    }
-});
-// Solicitudes y estados de pedidos
-router.post('/:id/solicitud-modificacion', async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const { solicitud } = req.body;
-        const pedidoId = req.params.id;
-
-        // Insertar solicitud
-        const [result] = await connection.query(
-            `INSERT INTO solicitud_modificacion_pedido 
-             (pedido_id, solicitado_por, estado, notas) 
-             VALUES (?, ?, 'PENDIENTE', ?)`,
-            [pedidoId, solicitud.solicitado_por, solicitud.notas]
-        );
-
-        const solicitudId = result.insertId;
-
-        // Insertar detalles
-        for (const cambio of solicitud.cambios) {
-            await connection.query(
-                `INSERT INTO detalle_solicitud_modificacion 
-                 (solicitud_id, detalle_pedido_id, cantidad_anterior, cantidad_nueva) 
-                 VALUES (?, ?, ?, ?)`,
-                [solicitudId, cambio.detalle_id, cambio.cantidad_anterior, cambio.cantidad_nueva]
-            );
-        }
-
-        await connection.commit();
-        res.json({
-            success: true,
-            solicitud_id: solicitudId
-        });
-
-    } catch (error) {
-        await connection.rollback();
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    } finally {
-        connection.release();
-    }
-});
-
 // Obtener detalle de un pedido específico
 router.get('/:id', async (req, res) => {
     try {
@@ -344,7 +229,9 @@ router.get('/:id', async (req, res) => {
             SELECT 
                 p.*,
                 so.nombre as sucursal_origen_nombre,
-                sd.nombre as sucursal_destino_nombre
+                so.color as sucursal_origen_color,
+                sd.nombre as sucursal_destino_nombre,
+                sd.color as sucursal_destino_color
             FROM pedido p
             JOIN sucursal so ON p.sucursal_origen = so.sucursal_id
             JOIN sucursal sd ON p.sucursal_destino = sd.sucursal_id
@@ -363,18 +250,30 @@ router.get('/:id', async (req, res) => {
                 cp.nombre as categoria_nombre,
                 cp.categoria_id,
                 sp.nombre as subcategoria_nombre,
-                sp.subcategoria_id
+                sp.subcategoria_id,
+                s.nombre as modificado_por_nombre,
+                s.color as modificado_por_color
             FROM detalle_pedido dp
             JOIN producto pr ON dp.producto_id = pr.producto_id
             JOIN subcategoria_producto sp ON pr.subcategoria_id = sp.subcategoria_id
             JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
+            LEFT JOIN sucursal s ON dp.modificado_por_sucursal = s.sucursal_id
             WHERE dp.pedido_id = ?
             ORDER BY cp.nombre, sp.nombre, pr.nombre
         `, [req.params.id]);
 
+        // Formatear los datos de modificación
+        const detallesFormateados = detalles.map(detalle => ({
+            ...detalle,
+            modificado_por: detalle.modificado_por_sucursal ? {
+                nombre: detalle.modificado_por_nombre,
+                color: detalle.modificado_por_color
+            } : null
+        }));
+
         res.json({
             ...pedido[0],
-            detalles
+            detalles: detallesFormateados
         });
     } catch (error) {
         console.error('Error:', error);
@@ -384,101 +283,12 @@ router.get('/:id', async (req, res) => {
         });
     }
 });
-
-// Actualizar estado del pedido
-router.patch('/:id/estado', async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const { estado, detalles, notas } = req.body;
-        const token = req.headers.authorization.split(' ')[1];
-        const decodedToken = jwt.verify(token, 'secret_key');
-
-        // Insertar en historial
-        const [historial] = await connection.query(
-            `INSERT INTO historial_pedido (
-                pedido_id, estado_anterior, estado_nuevo, 
-                usuario_id, notas, fecha
-            ) VALUES (?, 
-                (SELECT estado FROM pedido WHERE pedido_id = ?),
-                ?, ?, ?, NOW()
-            )`,
-            [req.params.id, req.params.id, estado, decodedToken.id, notas]
-        );
-
-        // Actualizar estado del pedido principal
-        await connection.query(
-            'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
-            [estado, req.params.id]
-        );
-
-        // Si hay detalles modificados
-        if (detalles && detalles.length > 0) {
-            for (const detalle of detalles) {
-                // Registrar cambios en detalles
-                await connection.query(
-                    `INSERT INTO detalle_cambio (
-                        historial_id, detalle_id, 
-                        cantidad_anterior, cantidad_nueva
-                    ) VALUES (?, ?, ?, ?)`,
-                    [
-                        historial.insertId,
-                        detalle.detalle_id,
-                        detalle.cantidad_anterior,
-                        detalle.cantidad_nueva
-                    ]
-                );
-
-                // Actualizar cantidades sin modificar el estado del detalle
-                await connection.query(
-                    `UPDATE detalle_pedido 
-                     SET cantidad_confirmada = ?,
-                         modificado = TRUE
-                     WHERE detalle_id = ?`,
-                    [detalle.cantidad_nueva, detalle.detalle_id]
-                );
-            }
-        }
-
-        await connection.commit();
-        res.json({
-            message: 'Estado actualizado exitosamente',
-            estado: estado
-        });
-
-    } catch (error) {
-        await connection.rollback();
-        console.error('Error en actualización de estado:', error);
-        res.status(500).json({
-            error: error.message,
-            details: error.stack
-        });
-    } finally {
-        connection.release();
-    }
-});
-
 // Rutas de borradores
 router.post('/borrador', async (req, res) => {
     try {
         const { sucursal_id, usuario_id, fecha_entrega_requerida, detalles, notas } = req.body;
 
-        // Validaciones
-        if (!sucursal_id || !usuario_id || !fecha_entrega_requerida || !detalles) {
-            return res.status(400).json({
-                message: 'Faltan datos requeridos',
-                received: {
-                    sucursal_id,
-                    usuario_id,
-                    fecha_entrega_requerida,
-                    detallesCount: detalles?.length
-                }
-            });
-        }
-
         const connection = await pool.getConnection();
-
         try {
             await connection.beginTransaction();
 
@@ -512,7 +322,6 @@ router.post('/borrador', async (req, res) => {
         } finally {
             connection.release();
         }
-
     } catch (error) {
         console.error('Error en creación de borrador:', error);
         res.status(500).json({
@@ -522,5 +331,136 @@ router.post('/borrador', async (req, res) => {
     }
 });
 
-// Exportar el router al final
+// Obtener borradores activos
+router.get('/borradores', async (req, res) => {
+    try {
+        const [borradores] = await pool.query(`
+            SELECT bp.*, 
+                   s.nombre as sucursal_nombre,
+                   u.nombre as usuario_nombre
+            FROM borrador_pedido bp
+            JOIN sucursal s ON bp.sucursal_id = s.sucursal_id
+            JOIN usuario u ON bp.usuario_id = u.usuario_id
+            WHERE bp.estado = 'ACTIVO'
+            ORDER BY bp.fecha_creacion DESC
+        `);
+
+        for (let borrador of borradores) {
+            const [detalles] = await pool.query(`
+                SELECT db.*,
+                       p.nombre as producto_nombre,
+                       p.codigo as producto_codigo
+                FROM detalle_borrador db
+                JOIN producto p ON db.producto_id = p.producto_id
+                WHERE db.borrador_id = ?
+            `, [borrador.borrador_id]);
+
+            borrador.detalles = detalles;
+        }
+
+        res.json(borradores);
+    } catch (error) {
+        console.error('Error obteniendo borradores:', error);
+        res.status(500).json({
+            message: 'Error al obtener borradores',
+            error: error.message
+        });
+    }
+});
+
+// Activar/desactivar borrador
+router.patch('/borrador/:id/estado', async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { estado } = req.body;
+        await connection.query(
+            'UPDATE borrador_pedido SET estado = ? WHERE borrador_id = ?',
+            [estado, req.params.id]
+        );
+
+        await connection.commit();
+        res.json({ message: 'Estado del borrador actualizado' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Convertir borrador en pedido
+router.post('/borrador/:id/confirmar', async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Obtener datos del borrador
+        const [borrador] = await connection.query(
+            'SELECT * FROM borrador_pedido WHERE borrador_id = ?',
+            [req.params.id]
+        );
+
+        if (!borrador.length) {
+            return res.status(404).json({ message: 'Borrador no encontrado' });
+        }
+
+        // Crear pedido desde borrador
+        const [result] = await connection.query(
+            `INSERT INTO pedido (
+                sucursal_origen,
+                fecha_pedido,
+                fecha_entrega_requerida,
+                estado,
+                notas
+            ) VALUES (?, NOW(), ?, 'EN_FABRICA', ?)`,
+            [borrador[0].sucursal_id, borrador[0].fecha_entrega_requerida, borrador[0].notas]
+        );
+
+        const pedidoId = result.insertId;
+
+        // Transferir detalles
+        const [detalles] = await connection.query(
+            'SELECT * FROM detalle_borrador WHERE borrador_id = ?',
+            [req.params.id]
+        );
+
+        for (const detalle of detalles) {
+            await connection.query(
+                `INSERT INTO detalle_pedido (
+                    pedido_id,
+                    producto_id,
+                    cantidad_solicitada,
+                    precio_unitario
+                ) VALUES (?, ?, ?, ?)`,
+                [pedidoId, detalle.producto_id, detalle.cantidad, detalle.precio_unitario]
+            );
+        }
+
+        // Desactivar borrador
+        await connection.query(
+            'UPDATE borrador_pedido SET estado = "CONVERTIDO" WHERE borrador_id = ?',
+            [req.params.id]
+        );
+
+        await connection.commit();
+        res.json({
+            message: 'Borrador convertido a pedido exitosamente',
+            pedido_id: pedidoId
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error:', error);
+        res.status(500).json({
+            message: 'Error al convertir borrador',
+            error: error.message
+        });
+    } finally {
+        connection.release();
+    }
+});
+
 module.exports = router;

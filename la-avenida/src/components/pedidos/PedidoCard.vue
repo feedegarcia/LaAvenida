@@ -1,4 +1,4 @@
-﻿<!-- components/pedidos/PedidoCard.vue -->
+﻿<!-- src/components/pedidos/PedidoCard.vue -->
 <template>
     <div class="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
          @click="verDetalle">
@@ -6,13 +6,19 @@
             <div>
                 <span class="text-sm font-medium">#{{ pedido.pedido_id }}</span>
                 <h4 class="font-medium">{{ pedido.destino }}</h4>
-                <!-- Badge de modificación pendiente -->
                 <span v-if="highlight"
                       class="inline-block px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full mt-1">
                     Modificación pendiente
                 </span>
             </div>
-            <EstadoPedido :estado="pedido.estado" />
+            <!-- Estado usando el pedidoStore -->
+            <span :class="[
+        'px-2 py-1 rounded-full text-xs',
+        `bg-${pedidoStore.obtenerColorEstado(pedido.estado)}-100`,
+        `text-${pedidoStore.obtenerColorEstado(pedido.estado)}-800`
+      ]">
+                {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}
+            </span>
         </div>
 
         <div class="text-sm text-gray-600 space-y-1">
@@ -26,7 +32,7 @@
             </div>
         </div>
 
-        <div v-if="esRolAdministrativo"
+        <div v-if="puedeVerCostos"
              class="mt-3 pt-3 border-t border-gray-100">
             <div class="flex justify-between text-sm">
                 <span class="font-medium">Total:</span>
@@ -39,10 +45,12 @@
 <script setup>
     import { computed } from 'vue';
     import { useRouter } from 'vue-router';
-    import { jwtDecode } from 'jwt-decode';
-    import EstadoPedido from './EstadoPedido.vue';
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
     const router = useRouter();
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
 
     const props = defineProps({
         pedido: {
@@ -55,17 +63,9 @@
         }
     });
 
-    // Obtener rol del usuario del token
-    const userRole = computed(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return null;
-        const decoded = jwtDecode(token);
-        return decoded.rol;
+    const puedeVerCostos = computed(() => {
+        return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
     });
-
-    const esRolAdministrativo = computed(() =>
-        userRole.value === 'ADMIN' || userRole.value === 'DUEÑO'
-    );
 
     const formatoFecha = (fecha) => {
         return new Date(fecha).toLocaleDateString('es-AR', {
@@ -83,6 +83,8 @@
     };
 
     const verDetalle = () => {
-        router.push(`/pedidos/${props.pedido.pedido_id}`);
+        if (pedidoStore.puedeVerPedido(props.pedido, authStore.user)) {
+            router.push(`/pedidos/${props.pedido.pedido_id}`);
+        }
     };
 </script>

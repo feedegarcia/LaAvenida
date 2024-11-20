@@ -1,5 +1,4 @@
-﻿
-<template>
+﻿<template>
     <div v-if="show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
             <div class="flex justify-between items-center mb-4">
@@ -50,6 +49,11 @@
                     </select>
                 </div>
 
+                <!-- Color -->
+                <ColorPicker v-model="formData.color">
+                    Color de identificación
+                </ColorPicker>
+
                 <!-- Horario de atención -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Horario de Atención</label>
@@ -78,16 +82,17 @@
 </template>
 
 <script setup>
-    import { ref, watch } from 'vue'
-    import axios from 'axios'
+    import { ref, watch } from 'vue';
+    import axios from 'axios';
+    import ColorPicker from '../shared/ColorPicker.vue';
 
     const props = defineProps({
         show: Boolean,
         editingSucursal: Object
-    })
+    });
 
-    const emit = defineEmits(['close', 'saved'])
-    const loading = ref(false)
+    const emit = defineEmits(['close', 'saved']);
+    const loading = ref(false);
 
     const formData = ref({
         nombre: '',
@@ -95,11 +100,15 @@
         telefono: '',
         tipo: 'SOLO_VENTA',
         horario_atencion: '',
-    })
+        color: '#FFFFFF'
+    });
 
     watch(() => props.editingSucursal, (sucursal) => {
         if (sucursal) {
-            formData.value = { ...sucursal }
+            formData.value = {
+                ...sucursal,
+                color: sucursal.color || '#FFFFFF'
+            };
         } else {
             formData.value = {
                 nombre: '',
@@ -107,35 +116,36 @@
                 telefono: '',
                 tipo: 'SOLO_VENTA',
                 horario_atencion: '',
-            }
+                color: '#FFFFFF'
+            };
         }
-    })
+    });
 
     const guardarSucursal = async () => {
         try {
-            loading.value = true
+            loading.value = true;
             const url = props.editingSucursal
                 ? `http://localhost:3000/api/sucursales/${props.editingSucursal.sucursal_id}`
-                : 'http://localhost:3000/api/sucursales'
+                : 'http://localhost:3000/api/sucursales';
 
-            const method = props.editingSucursal ? 'patch' : 'post'
+            const method = props.editingSucursal ? 'patch' : 'post';
 
             await axios[method](url, formData.value, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            })
+            });
 
-            emit('saved')
-            cerrarModal()
+            emit('saved');
+            cerrarModal();
         } catch (error) {
-            console.error('Error guardando sucursal:', error)
+            console.error('Error guardando sucursal:', error);
         } finally {
-            loading.value = false
+            loading.value = false;
         }
-    }
+    };
 
     const cerrarModal = () => {
-        emit('close')
-    }
+        emit('close');
+    };
 </script>
