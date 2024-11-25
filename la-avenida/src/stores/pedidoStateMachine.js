@@ -1,203 +1,231 @@
-// src/stores/pedidoStateMachine.js
-
 import { defineStore } from 'pinia';
+import axios from '@/utils/axios-config';
 
 export const usePedidoStore = defineStore('pedido', {
     state: () => ({
         estadosPedido: {
             BORRADOR: {
-                siguientesEstados: ['EN_FABRICA', 'CANCELADO'],
-                permisos: ['CREAR_PEDIDO', 'MODIFICAR_PEDIDO', 'CANCELAR_PEDIDO'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
                 label: 'Borrador',
                 color: 'gray',
-                permisosEspeciales: {
-                    MODIFICAR: 'AMBOS' // Tanto origen como destino pueden modificar
+                siguientesEstados: ['EN_FABRICA'],
+                acciones: [
+                    {
+                        estado: 'EN_FABRICA',
+                        label: 'Confirmar Pedido',
+                        requiereValidacion: true,
+                        validaciones: ['tieneProductos']
+                    }
+                ],
+                permisos: {
+                    ver: 'SUCURSAL_ORIGEN',
+                    modificar: 'SUCURSAL_ORIGEN'
                 }
             },
             EN_FABRICA: {
-                siguientesEstados: ['PREPARADO', 'CANCELADO'],
-                permisos: ['MODIFICAR_PEDIDO'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO', 'FABRICA'],
-                label: 'En Fábrica',
+                label: 'En Fabrica',
                 color: 'blue',
-                permisosEspeciales: {
-                    MODIFICAR: 'AMBOS'
+                siguientesEstados: ['PREPARADO', 'EN_FABRICA_MODIFICADO'],
+                acciones: [
+                    {
+                        estado: 'PREPARADO',
+                        label: 'Preparado',
+                        desactivadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_FABRICA'
+                    },
+                    {
+                        estado: 'EN_FABRICA_MODIFICADO',
+                        label: 'Preparado Modificado',
+                        activadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_FABRICA'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_FABRICA'
                 }
             },
             EN_FABRICA_MODIFICADO: {
-                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
-                permisos: ['ACEPTAR_MODIFICACION', 'REPORTAR_DIFERENCIAS'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Modificado en Fábrica',
-                color: 'orange',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
+                label: 'Modificado en Fabrica',
+                color: 'yellow',
+                siguientesEstados: ['PREPARADO'],
+                acciones: [
+                    {
+                        estado: 'PREPARADO',
+                        label: 'Confirmar Modificacion',
+                        permiso: 'SUCURSAL_FABRICA'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_FABRICA'
                 }
             },
             PREPARADO: {
-                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
-                permisos: ['CONFIRMAR_RECEPCION'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
                 label: 'Preparado',
-                color: 'yellow',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
-                }
-            },
-            RECIBIDO_CON_DIFERENCIAS: {
-                siguientesEstados: ['RECIBIDO', 'PREPARADO_MODIFICADO'],
-                permisos: ['ACEPTAR_DIFERENCIAS', 'RECHAZAR_DIFERENCIAS'],
-                roles: ['FABRICA', 'ADMIN', 'DUEÑO'],
-                label: 'Con Diferencias',
-                color: 'red',
-                permisosEspeciales: {
-                    MODIFICAR: 'DESTINO',
-                    VER: 'AMBOS'
+                color: 'green',
+                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
+                acciones: [
+                    {
+                        estado: 'RECIBIDO',
+                        label: 'Recibido',
+                        desactivadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_ORIGEN'
+                    },
+                    {
+                        estado: 'RECIBIDO_CON_DIFERENCIAS',
+                        label: 'Con Diferencias',
+                        activadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_ORIGEN'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_ORIGEN'
                 }
             },
             PREPARADO_MODIFICADO: {
-                siguientesEstados: ['RECIBIDO'],
-                permisos: ['CONFIRMAR_RECEPCION'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
                 label: 'Preparado con Cambios',
-                color: 'purple',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
+                color: 'orange',
+                siguientesEstados: ['RECIBIDO'],
+                acciones: [
+                    {
+                        estado: 'RECIBIDO',
+                        label: 'Confirmar Recepcion',
+                        permiso: 'SUCURSAL_ORIGEN'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_ORIGEN'
                 }
             },
-            RECIBIDO: {
-                siguientesEstados: ['FINALIZADO'],
-                permisos: ['FINALIZAR_PEDIDO'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Recibido',
-                color: 'green',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
+            RECIBIDO_CON_DIFERENCIAS: {
+                label: 'Con Diferencias',
+                color: 'red',
+                siguientesEstados: ['FINALIZADO', 'EN_FABRICA_MODIFICADO'],
+                acciones: [
+                    {
+                        estado: 'FINALIZADO',
+                        label: 'Aprobar',
+                        permiso: 'SUCURSAL_FABRICA'
+                    },
+                    {
+                        estado: 'EN_FABRICA_MODIFICADO',
+                        label: 'Desaprobar',
+                        activadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_FABRICA'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_FABRICA'
                 }
             },
             FINALIZADO: {
-                siguientesEstados: [],
-                permisos: [],
-                roles: ['ADMIN', 'DUEÑO'],
                 label: 'Finalizado',
-                color: 'emerald',
-                permisosEspeciales: {
-                    VER: 'AMBOS'
+                color: 'green',
+                siguientesEstados: [],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'ADMIN'
                 }
             },
             CANCELADO: {
-                siguientesEstados: [],
-                permisos: [],
-                roles: ['ADMIN', 'DUEÑO'],
                 label: 'Cancelado',
                 color: 'red',
-                permisosEspeciales: {
-                    VER: 'AMBOS'
+                siguientesEstados: [],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: null
                 }
             }
         }
     }),
 
-    actions: {
-        puedeTransicionarA(estadoActual, estadoDestino, rol) {
-            const estado = this.estadosPedido[estadoActual];
-            if (!estado) return false;
-            return estado.siguientesEstados.includes(estadoDestino) &&
-                this.estadosPedido[estadoDestino].roles.includes(rol);
-        },
-
-        obtenerAccionesPermitidas(estadoActual, rol) {
-            const estado = this.estadosPedido[estadoActual];
-            if (!estado) return [];
-            return estado.siguientesEstados.filter(e =>
-                this.estadosPedido[e].roles.includes(rol)
-            );
-        },
-
-        puedeVerPedido(pedido, usuario) {
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
-
-            // Admin y Dueño siempre pueden ver
+    getters: {
+        puedeVerPedido: (state) => (pedido, usuario) => {
             if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
 
-            const tipoPermiso = estado.permisosEspeciales?.VER;
-            switch (tipoPermiso) {
-                case 'ORIGEN':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-                case 'DESTINO':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
-                case 'AMBOS':
-                    return usuario.sucursales.some(s =>
-                        s.id === pedido.sucursal_origen || s.id === pedido.sucursal_destino
-                    );
-                default:
-                    return false;
-            }
-        },
+            const estadoConfig = state.estadosPedido[pedido.estado];
+            if (!estadoConfig?.permisos?.ver) return false;
 
-        puedeModificarPedido(pedido, usuario) {
-            // Si es estado final, nadie puede modificar
-            if (this.estadosFinales.includes(pedido.estado)) {
+            return usuario.sucursales.some(sucursal => {
+                if (sucursal.id === pedido.sucursal_origen) return true;
+                if (sucursal.id === pedido.sucursal_destino &&
+                    pedido.sucursal_destino === pedido.fabrica_id) return true;
                 return false;
-            }
-
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
-
-            // Admin y Dueño siempre pueden modificar (excepto estados finales)
-            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) {
-                return true;
-            }
-
-            // Verificar si el usuario tiene el rol necesario
-            if (!estado.roles.includes(usuario.rol)) {
-                return false;
-            }
-
-            // Verificar permisos especiales de modificación
-            const tipoPermiso = estado.permisosEspeciales?.MODIFICAR;
-            switch (tipoPermiso) {
-                case 'ORIGEN':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-                case 'DESTINO':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
-                case 'AMBOS':
-                    return usuario.sucursales.some(s =>
-                        s.id === pedido.sucursal_origen || s.id === pedido.sucursal_destino
-                    );
-                default:
-                    return false;
-            }
+            });
         },
 
-        puedeCancelarPedido(pedido, usuario) {
-            // Si es admin o dueño, siempre puede cancelar hasta EN_FABRICA
-            if (['ADMIN', 'DUEÑO'].includes(usuario.rol) &&
-                ['BORRADOR', 'EN_FABRICA'].includes(pedido.estado)) {
-                return true;
+        puedeModificarPedido: (state) => (pedido, usuario) => {
+            if (!pedido || !usuario) return false;
+
+            if (usuario.rol === 'ADMIN') {
+                return pedido.estado !== 'CANCELADO';
             }
 
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
+            const estadoConfig = state.estadosPedido[pedido.estado];
+            if (!estadoConfig?.permisos?.modificar) return false;
 
-            // Verificar si el estado permite cancelación
-            if (!estado.siguientesEstados.includes('CANCELADO')) return false;
+            const permisoRequerido = estadoConfig.permisos.modificar;
 
-            // Verificar permiso especial de cancelación
-            const tipoPermiso = estado.permisosEspeciales?.CANCELAR;
-            if (tipoPermiso === 'ORIGEN') {
-                return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-            }
-
-            return false;
+            return usuario.sucursales.some(sucursal => {
+                switch (permisoRequerido) {
+                    case 'SUCURSAL_ORIGEN':
+                        return sucursal.id === pedido.sucursal_origen;
+                    case 'SUCURSAL_FABRICA':
+                        return sucursal.id === pedido.sucursal_destino;
+                    default:
+                        return false;
+                }
+            });
         },
 
+        obtenerAccionesPermitidas: (state) => (estado, usuario, pedido) => {
+            const estadoConfig = state.estadosPedido[estado];
+            if (!estadoConfig?.acciones) return [];
+
+            return estadoConfig.acciones.filter(accion => {
+                if (usuario.rol === 'ADMIN' && !['FINALIZADO', 'CANCELADO'].includes(estado)) {
+                    return true;
+                }
+
+                const tienePermiso = usuario.sucursales.some(sucursal => {
+                    switch (accion.permiso) {
+                        case 'SUCURSAL_ORIGEN':
+                            return sucursal.id === pedido.sucursal_origen;
+                        case 'SUCURSAL_FABRICA':
+                            return sucursal.id === pedido.sucursal_destino;
+                        default:
+                            return false;
+                    }
+                });
+
+                if (!tienePermiso) return false;
+
+                if (accion.desactivadoSi === 'tieneCambios') {
+                    return !pedido.detalles?.some(d => d.modificado);
+                }
+                if (accion.activadoSi === 'tieneCambios') {
+                    return pedido.detalles?.some(d => d.modificado);
+                }
+
+                return true;
+            });
+        },
+
+        puedeCancelarPedido: (state) => (pedido, usuario) => {
+            if (!pedido || !usuario) return false;
+            if (usuario.rol !== 'ADMIN') return false;
+            return !['FINALIZADO', 'CANCELADO'].includes(pedido.estado);
+        },
+
+        puedeVerTotales: (state) => (pedido, usuario) => {
+            return ['ADMIN', 'DUEÑO'].includes(usuario.rol);
+        }
+    },
+
+    actions: {
         obtenerEtiquetaEstado(estado) {
             return this.estadosPedido[estado]?.label || estado;
         },
@@ -206,25 +234,17 @@ export const usePedidoStore = defineStore('pedido', {
             return this.estadosPedido[estado]?.color || 'gray';
         },
 
-        tienePermiso(estado, permiso, rol) {
-            const estadoConfig = this.estadosPedido[estado];
-            if (!estadoConfig) return false;
-            return estadoConfig.permisos.includes(permiso) &&
-                estadoConfig.roles.includes(rol);
+        async cambiarEstadoPedido(pedidoId, nuevoEstado, datos = {}) {
+            try {
+                const response = await axios.patch(`/api/pedidos/${pedidoId}/estado`, {
+                    estado: nuevoEstado,
+                    ...datos
+                });
+                return response.data;
+            } catch (error) {
+                console.error('Error al cambiar estado:', error);
+                throw error;
+            }
         }
-    },
-
-    getters: {
-        todosLosEstados: (state) => Object.keys(state.estadosPedido),
-
-        estadosActivos: (state) =>
-            Object.entries(state.estadosPedido)
-                .filter(([, config]) => config.siguientesEstados.length > 0)
-                .map(([estado]) => estado),
-
-        estadosFinales: (state) =>
-            Object.entries(state.estadosPedido)
-                .filter(([, config]) => config.siguientesEstados.length === 0)
-                .map(([estado]) => estado)
     }
-}); 
+});

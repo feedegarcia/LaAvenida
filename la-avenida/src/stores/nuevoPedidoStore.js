@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import axios from '@/utils/axios-config';
-import { usePedidoStore } from './pedidoStateMachine';
 
 export const useNuevoPedidoStore = defineStore('nuevoPedido', {
     state: () => ({
@@ -35,11 +34,6 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 if (!producto || !detalle.cantidad) return total;
                 return total + (producto.precio_mayorista * detalle.cantidad);
             }, 0);
-        },
-
-        productosPorFabrica: (state) => {
-            if (!state.productos) return {};
-            return state.productos;
         }
     },
 
@@ -69,7 +63,6 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
             try {
                 const response = await axios.get('/api/productos/pedido');
                 this.productos = response.data || [];
-                console.log('Productos cargados:', this.productos);
             } catch (error) {
                 console.error('Error al cargar productos:', error);
                 this.error = 'Error al cargar productos';
@@ -102,6 +95,141 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
 
             fecha.setHours(0, 0, 0, 0);
             return fecha;
+        },
+
+        obtenerFabricaDestino() {
+            for (const [productoId] of Object.entries(this.pedido.detalles)) {
+                for (const [fabricaId, fabrica] of Object.entries(this.productos.fabricas || {})) {
+                    for (const subcategoria of Object.values(fabrica.subcategorias || {})) {
+                        if (subcategoria.productos?.some(p => p.producto_id === parseInt(productoId))) {
+                            return parseInt(fabricaId);
+                        }
+                    }
+                }
+            }
+            return null;
+        },
+
+        async confirmarPedido() {
+            try {
+                if (!this.pedido.sucursal_origen) {
+                    throw new Error('Debe seleccionar una sucursal de origen');
+                }
+
+                if (!this.tieneProductosSeleccionados) {
+                    throw new Error('Debe seleccionar al menos un producto');
+                }
+
+                const pedidosPorFabrica = new Map();
+
+                for (const [productoId, detalle] of Object.entries(this.pedido.detalles)) {
+                    const resultado = this.encontrarProductoYFabrica(productoId);
+                    if (!resultado) {
+                        console.error(`Producto no encontrado: ${productoId}`);
+                        continue;
+                    }
+
+                    const { producto, fabricaId } = resultado;
+
+                    if (!pedidosPorFabrica.has(fabricaId)) {
+                        pedidosPorFabrica.set(fabricaId, {
+                            sucursal_origen: this.pedido.sucursal_origen,
+                            sucursal_destino: fabricaId,
+                            fecha_entrega_requerida: this.formatearFechaParaMySQL(this.pedido.fecha_entrega_requerida),
+                            tipo: 'PEDIDO_FABRICA',
+                            detalles: [],
+                            notas: this.pedido.notas || ''
+                        });
+                    }
+
+                    const pedidoFabrica = pedidosPorFabrica.get(fabricaId);
+                    pedidoFabrica.detalles.push({
+                        producto_id: parseInt(productoId),
+                        cantidad: detalle.cantidad,
+                        precio_unitario: parseFloat(producto.precio_mayorista)
+                    });
+                }
+
+                const resultados = [];
+                for (const [fabricaId, pedidoData] of pedidosPorFabrica) {
+                    try {
+                        const response = await axios.post('/api/pedidos', pedidoData);
+                        resultados.push({
+                            fabrica: fabricaId,
+                            resultado: response.data,
+                            estado: 'éxito'
+                        });
+                    } catch (error) {
+                        resultados.push({
+                            fabrica: fabricaId,
+                            error: error.message,
+                            estado: 'error'
+                        });
+                    }
+                }
+
+                const errores = resultados.filter(r => r.estado === 'error');
+                if (errores.length > 0) {
+                    throw new Error(`Error al crear pedidos para ${errores.length} fábricas: ${errores.map(e => e.error).join(', ')}`);
+                }
+
+                return {
+                    mensaje: `Se crearon ${resultados.length} pedidos exitosamente`,
+                    pedidos: resultados
+                };
+            } catch (error) {
+                console.error('Error detallado:', error);
+                throw error;
+            }
+        },
+
+        encontrarProductoYFabrica(productoId) {
+            for (const [fabricaId, fabrica] of Object.entries(this.productos.fabricas || {})) {
+                for (const subcategoria of Object.values(fabrica.subcategorias || {})) {
+                    const producto = subcategoria.productos?.find(p => p.producto_id === parseInt(productoId));
+                    if (producto) {
+                        return {
+                            producto,
+                            fabricaId: parseInt(fabricaId)
+                        };
+                    }
+                }
+            }
+
+            const productoSinTac = (this.productos.sinTac || [])
+                .find(p => p.producto_id === parseInt(productoId));
+            if (productoSinTac) {
+                return {
+                    producto: productoSinTac,
+                    fabricaId: productoSinTac.sucursal_fabricante_id
+                };
+            }
+
+            return null;
+        },
+
+        formatearFechaParaMySQL(fecha) {
+            if (!fecha) return null;
+            const d = new Date(fecha);
+            return d.toISOString().slice(0, 19).replace('T', ' ');
+        },
+
+        async guardarBorrador() {
+            try {
+                if (!this.tieneProductosSeleccionados) {
+                    throw new Error('Debe seleccionar al menos un producto');
+                }
+
+                const response = await axios.post('/api/pedidos', {
+                    ...this.pedido,
+                    estado: 'BORRADOR'
+                });
+
+                return response.data;
+            } catch (error) {
+                console.error('Error al guardar borrador:', error);
+                throw error;
+            }
         },
 
         resetear() {

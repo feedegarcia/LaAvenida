@@ -1,8 +1,6 @@
-<!-- components/pedidos/DetalleProductos.vue -->
 <template>
-    <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+    <div class="bg-white rounded-lg shadow-lg p-4">
         <h3 class="text-lg font-semibold mb-4">Detalle del Pedido</h3>
-
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -16,13 +14,16 @@
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Cantidad Confirmada
                         </th>
-                        <th v-if="esRolAdministrativo" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th v-if="puedeVerTotales"
+                            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Precio Unit.
                         </th>
-                        <th v-if="esRolAdministrativo" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th v-if="puedeVerTotales"
+                            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Subtotal
                         </th>
-                        <th v-if="puedeModificar" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th v-if="puedeModificar"
+                            class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Acciones
                         </th>
                     </tr>
@@ -30,43 +31,40 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     <tr v-for="detalle in detalles"
                         :key="detalle.detalle_id"
-                        :class="{'bg-yellow-50': detalle.modificado}">
+                        :class="getRowClasses(detalle)">
                         <td class="px-4 py-3">
                             <div class="flex items-center">
-                                <span class="font-medium">{{ detalle.nombre_producto }}</span>
+                                <span class="font-medium">{{ detalle.producto_nombre }}</span>
                                 <span v-if="detalle.modificado"
-                                      class="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                                    Modificado
+                                      class="ml-2 px-2 py-1 text-xs rounded-full"
+                                      :style="getModificadoBadgeStyle(detalle)">
+                                    Modificado por {{ getSucursalNombre(detalle.modificado_por_sucursal) }}
                                 </span>
                             </div>
-                            <!-- Historial de cambios del producto -->
-                            <div v-if="detalle.historial_cambios?.length"
-                                 class="mt-1 text-sm text-gray-500">
-                                <button @click="mostrarHistorial(detalle)"
-                                        class="text-blue-500 hover:text-blue-700">
-                                    Ver historial de cambios
-                                </button>
-                            </div>
                         </td>
-                        <td class="px-4 py-3 text-right text-sm">
+                        <td class="px-4 py-3 text-right">
                             {{ detalle.cantidad_solicitada }}
                         </td>
-                        <td class="px-4 py-3 text-right text-sm">
+                        <td class="px-4 py-3 text-right">
                             <template v-if="puedeModificar">
                                 <input type="number"
                                        v-model.number="cantidadesModificadas[detalle.detalle_id]"
                                        :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
-                                       class="w-20 text-right border rounded-md focus:ring-2 focus:ring-emerald-500">
+                                       min="0"
+                                       class="w-20 text-right border rounded-md">
                             </template>
                             <template v-else>
                                 {{ detalle.cantidad_confirmada || detalle.cantidad_solicitada }}
                             </template>
                         </td>
-                        <td v-if="esRolAdministrativo" class="px-4 py-3 text-right text-sm">
+                        <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
                             $ {{ formatoMoneda(detalle.precio_unitario) }}
                         </td>
-                        <td v-if="esRolAdministrativo" class="px-4 py-3 text-right text-sm">
-                            $ {{ formatoMoneda(detalle.precio_unitario * (detalle.cantidad_confirmada || detalle.cantidad_solicitada)) }}
+                        <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
+                            $ {{
+ formatoMoneda(detalle.precio_unitario *
+                                (detalle.cantidad_confirmada || detalle.cantidad_solicitada))
+                            }}
                         </td>
                         <td v-if="puedeModificar" class="px-4 py-3 text-center">
                             <button v-if="hayCambios(detalle)"
@@ -77,10 +75,9 @@
                         </td>
                     </tr>
                 </tbody>
-                <!-- Footer con totales para roles administrativos -->
-                <tfoot v-if="esRolAdministrativo">
+                <tfoot v-if="puedeVerTotales">
                     <tr class="bg-gray-50">
-                        <td colspan="3" class="px-4 py-3 text-right font-medium">Total:</td>
+                        <td colspan="4" class="px-4 py-3 text-right font-medium">Total:</td>
                         <td class="px-4 py-3 text-right font-medium">
                             $ {{ formatoMoneda(totalPedido) }}
                         </td>
@@ -89,77 +86,103 @@
                 </tfoot>
             </table>
         </div>
-
-        <!-- Modal de historial -->
-        <HistorialModal v-if="historialSeleccionado"
-                        :historial="historialSeleccionado"
-                        @close="historialSeleccionado = null" />
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import HistorialModal from './HistorialModal.vue'
+    import { ref, computed } from 'vue';
 
-const props = defineProps({
-  detalles: {
-    type: Array,
-    required: true
-  },
-  estado: {
-    type: String,
-    required: true
-  }
-})
+    const props = defineProps({
+        pedido: {
+            type: Object,
+            required: true
+        },
+        detalles: {
+            type: Array,
+            required: true
+        },
+        puedeModificar: {
+            type: Boolean,
+            default: false
+        },
+        puedeVerTotales: {
+            type: Boolean,
+            default: false
+        }
+    });
 
-const emit = defineEmits(['modificacion'])
+    const emit = defineEmits(['modificacion']);
+    const cantidadesModificadas = ref({});
 
-const authStore = useAuthStore()
-const cantidadesModificadas = ref({})
-const historialSeleccionado = ref(null)
+    const totalPedido = computed(() => {
+        return props.detalles.reduce((total, detalle) => {
+            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
+            return total + (detalle.precio_unitario * cantidad);
+        }, 0);
+    });
+    const getRowClasses = (detalle) => {
+        if (!detalle.modificado) return '';
 
-// Computed properties
-const esRolAdministrativo = computed(() => {
-  return ['ADMIN', 'DUEÑO'].includes(authStore.userRole)
-})
+        const sucursal = props.pedido?.sucursales?.find(
+            s => s.sucursal_id === detalle.modificado_por_sucursal
+        );
 
-const puedeModificar = computed(() => {
-  return ['EN_FABRICA', 'EN_FABRICA_MODIFICADO', 'RECIBIDO'].includes(props.estado)
-})
+        if (!sucursal?.color) return 'bg-gray-50';
 
-const totalPedido = computed(() => {
-  return props.detalles.reduce((total, detalle) => {
-    const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada
-    return total + (detalle.precio_unitario * cantidad)
-  }, 0)
-})
+        // Convertir el color HEX a RGB con opacidad
+        const hex = sucursal.color.replace('#', '');
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
 
-// Methods
-const formatoMoneda = (valor) => {
-  return valor.toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })
-}
+        return {
+            backgroundColor: `rgba(${r}, ${g}, ${b}, 0.1)`
+        };
+    };
+    const getModificadoBadgeStyle = (detalle) => {
+        const sucursal = props.pedido?.sucursales?.find(
+            s => s.sucursal_id === detalle.modificado_por_sucursal
+        );
 
-const hayCambios = (detalle) => {
-  const nuevaCantidad = cantidadesModificadas.value[detalle.detalle_id]
-  return nuevaCantidad !== undefined &&
-         nuevaCantidad !== detalle.cantidad_confirmada &&
-         nuevaCantidad !== detalle.cantidad_solicitada
-}
+        if (!sucursal?.color) return {
+            backgroundColor: 'rgb(243, 244, 246)',
+            color: 'rgb(107, 114, 128)'
+        };
 
-const guardarCambios = (detalle) => {
-  const cambio = {
-    detalle_id: detalle.detalle_id,
-    cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
-    cantidad_nueva: cantidadesModificadas.value[detalle.detalle_id]
-  }
-  emit('modificacion', cambio)
-}
+        const hex = sucursal.color;
+        return {
+            backgroundColor: `${hex}20`,
+            color: hex
+        };
+    };
 
-const mostrarHistorial = (detalle) => {
-  historialSeleccionado.value = detalle.historial_cambios
-}
-</script>
+    // Nueva función para obtener nombre de sucursal
+    const getSucursalNombre = (sucursalId) => {
+        const sucursal = props.pedido?.sucursales?.find(
+            s => s.sucursal_id === sucursalId
+        );
+        return sucursal?.nombre || 'Desconocida';
+    };
+    const formatoMoneda = (valor) => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const hayCambios = (detalle) => {
+        const nuevaCantidad = cantidadesModificadas.value[detalle.detalle_id];
+        return nuevaCantidad !== undefined &&
+            nuevaCantidad !== detalle.cantidad_confirmada &&
+            nuevaCantidad !== detalle.cantidad_solicitada;
+    };
+
+    const guardarCambios = (detalle) => {
+        const cambio = {
+            detalle_id: detalle.detalle_id,
+            cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
+            cantidad_nueva: cantidadesModificadas.value[detalle.detalle_id]
+        };
+        emit('modificacion', cambio);
+    };
+</script>   

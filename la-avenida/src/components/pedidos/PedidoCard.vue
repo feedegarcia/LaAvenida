@@ -1,5 +1,4 @@
-﻿<!-- src/components/pedidos/PedidoCard.vue -->
-<template>
+﻿<template>
     <div class="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
          @click="verDetalle">
         <div class="flex justify-between items-start mb-2">
@@ -11,13 +10,12 @@
                     Modificación pendiente
                 </span>
             </div>
-            <!-- Estado usando el pedidoStore -->
-            <span :class="[
-        'px-2 py-1 rounded-full text-xs',
-        `bg-${pedidoStore.obtenerColorEstado(pedido.estado)}-100`,
-        `text-${pedidoStore.obtenerColorEstado(pedido.estado)}-800`
-      ]">
-                {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}
+            <span :class="{
+                'px-2 py-1 rounded-full text-xs': true,
+                [`bg-${getEstadoColor()}-100`]: true,
+                [`text-${getEstadoColor()}-800`]: true
+            }">
+                {{ getEstadoLabel() }}
             </span>
         </div>
 
@@ -32,11 +30,11 @@
             </div>
         </div>
 
-        <div v-if="puedeVerCostos"
+        <div v-if="puedeVerCostos && pedido.total"
              class="mt-3 pt-3 border-t border-gray-100">
             <div class="flex justify-between text-sm">
                 <span class="font-medium">Total:</span>
-                <span class="font-medium">$ {{ formatoMoneda(pedido.total_pedido) }}</span>
+                <span class="font-medium">$ {{ formatoMoneda(pedido.total || 0) }}</span>
             </div>
         </div>
     </div>
@@ -47,10 +45,6 @@
     import { useRouter } from 'vue-router';
     import { useAuthStore } from '@/stores/auth';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
-
-    const router = useRouter();
-    const authStore = useAuthStore();
-    const pedidoStore = usePedidoStore();
 
     const props = defineProps({
         pedido: {
@@ -63,8 +57,12 @@
         }
     });
 
+    const router = useRouter();
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
+
     const puedeVerCostos = computed(() => {
-        return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
+        return pedidoStore.puedeVerTotales(props.pedido, authStore.user);
     });
 
     const formatoFecha = (fecha) => {
@@ -80,6 +78,16 @@
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(valor);
+    };
+
+    const getEstadoColor = () => {
+        const estadoConfig = pedidoStore.estadosPedido[props.pedido.estado];
+        return estadoConfig?.color || 'gray';
+    };
+
+    const getEstadoLabel = () => {
+        const estadoConfig = pedidoStore.estadosPedido[props.pedido.estado];
+        return estadoConfig?.label || props.pedido.estado;
     };
 
     const verDetalle = () => {
