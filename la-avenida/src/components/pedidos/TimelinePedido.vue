@@ -42,7 +42,6 @@
                                     :pedido="pedidoData"
                                     @estado-actualizado="handleEstadoActualizado" />
 
-
                 <!-- Historial de cambios -->
                 <div v-if="historialCambios.length > 0" class="mt-6">
                     <h4 class="font-medium mb-4">Historial de Cambios</h4>
@@ -89,6 +88,7 @@
         </template>
     </div>
 </template>
+
 <script setup>
     import { ref, computed, watch, onMounted } from 'vue';
     import { useAuthStore } from '@/stores/auth';
@@ -117,54 +117,6 @@
     const loading = ref(false);
     const error = ref('');
 
-    // Computed Properties
-    const puedeVerTotales = computed(() => {
-        if (!pedidoData.value) return false;
-        return pedidoStore.puedeVerTotales(pedidoData.value, authStore.user);
-    });
-
-    const totalPedido = computed(() => {
-        if (!pedidoData.value?.detalles) return 0;
-        return pedidoData.value.detalles.reduce((total, detalle) => {
-            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
-            return total + (detalle.precio_unitario * cantidad);
-        }, 0);
-    });
-
-    // Methods
-    const formatoMoneda = (valor) => {
-        return new Intl.NumberFormat('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
-    };
-
-    const cargarPedido = async () => {
-        try {
-            loading.value = true;
-            error.value = '';
-
-            if (props.pedido) {
-                console.log('Pedido cargado desde props:', props.pedido); // Agregar este log
-                pedidoData.value = props.pedido;
-                await cargarHistorial(props.pedido.pedido_id);
-                return;
-            }
-
-            if (props.id) {
-                const response = await axios.get(`/api/pedidos/${props.id}`);
-                console.log('Respuesta de la API:', response.data); // Agregar este log
-                pedidoData.value = response.data;
-                await cargarHistorial(props.id);
-            }
-        } catch (err) {
-            console.error('Error cargando pedido:', err);
-            error.value = 'Error al cargar el pedido';
-        } finally {
-            loading.value = false;
-        }
-    };
-
     const cargarHistorial = async (pedidoId) => {
         try {
             const response = await axios.get(`/api/pedidos/${pedidoId}/historial`);
@@ -173,10 +125,39 @@
                 cambios: typeof cambio.cambios === 'string' ?
                     JSON.parse(cambio.cambios) : cambio.cambios
             }));
+            console.log('Historial cargado:', historialCambios.value);
         } catch (err) {
             console.error('Error cargando historial:', err);
-            // No establecemos error.value aquí para no bloquear la vista completa
-            // si solo falla el historial
+        }
+    };
+
+    const cargarPedido = async () => {
+        try {
+            loading.value = true;
+            error.value = '';
+            console.log('Iniciando carga de pedido');
+
+            if (props.pedido) {
+                console.log('Cargando desde props:', props.pedido);
+                console.log('Detalles desde props:', props.pedido.detalles);
+                pedidoData.value = props.pedido;
+                await cargarHistorial(props.pedido.pedido_id);
+                return;
+            }
+
+            if (props.id) {
+                const response = await axios.get(`/api/pedidos/${props.id}`);
+                console.log('Respuesta completa API:', response.data);
+                console.log('Detalles en API:', response.data.detalles);
+                console.log('Primer detalle:', response.data.detalles?.[0]);
+                pedidoData.value = response.data;
+                await cargarHistorial(props.id);
+            }
+        } catch (err) {
+            console.error('Error detallado:', err);
+            error.value = 'Error al cargar el pedido';
+        } finally {
+            loading.value = false;
         }
     };
 
@@ -185,21 +166,21 @@
         emit('estado-actualizado', resultado);
     };
 
-    // Watchers
-    watch(() => props.pedido, (newPedido) => {
-        if (newPedido) {
-            pedidoData.value = newPedido;
-            cargarHistorial(newPedido.pedido_id);
+    // Watch para debug
+    watch(() => pedidoData.value, (newValue) => {
+        if (newValue) {
+            console.log('PedidoData actualizado:', {
+                pedido_id: newValue.pedido_id,
+                estado: newValue.estado,
+                detalles: newValue.detalles?.map(d => ({
+                    detalle_id: d.detalle_id,
+                    producto_nombre: d.producto_nombre,
+                    cantidad_solicitada: d.cantidad_solicitada
+                }))
+            });
         }
-    });
+    }, { deep: true });
 
-    watch(() => props.id, (newId) => {
-        if (newId) {
-            cargarPedido();
-        }
-    });
-
-    // Lifecycle Hooks
     onMounted(() => {
         cargarPedido();
     });

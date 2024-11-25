@@ -4,62 +4,62 @@ import axios from '@/utils/axios-config';
 export const usePedidoStore = defineStore('pedido', {
     state: () => ({
         estadosPedido: {
-            BORRADOR: {
-                label: 'Borrador',
-                color: 'gray',
-                siguientesEstados: ['EN_FABRICA'],
+            EN_FABRICA: {
+                label: 'En Fábrica',
+                color: 'blue',
+                siguientesEstados: ['PREPARADO', 'PREPARADO_MODIFICADO', 'EN_FABRICA_MODIFICADO'],
                 acciones: [
+                    // Acciones para sucursal origen
                     {
-                        estado: 'EN_FABRICA',
-                        label: 'Confirmar Pedido',
-                        requiereValidacion: true,
-                        validaciones: ['tieneProductos']
+                        estado: 'EN_FABRICA_MODIFICADO',
+                        label: 'Confirmar Modificaciones',
+                        activadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_ORIGEN'
+                    },
+                    // Acciones para sucursal destino
+                    {
+                        estado: 'PREPARADO',
+                        label: 'Preparado',
+                        desactivadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_DESTINO'
+                    },
+                    {
+                        estado: 'PREPARADO_MODIFICADO',
+                        label: 'Preparado con Modificaciones',
+                        activadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_DESTINO'
                     }
                 ],
                 permisos: {
-                    ver: 'SUCURSAL_ORIGEN',
-                    modificar: 'SUCURSAL_ORIGEN'
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO']
                 }
             },
-            EN_FABRICA: {
-                label: 'En Fabrica',
-                color: 'blue',
-                siguientesEstados: ['PREPARADO', 'EN_FABRICA_MODIFICADO'],
+
+            EN_FABRICA_MODIFICADO: {
+                label: 'Modificado por Sucursal',
+                color: 'yellow',
+                siguientesEstados: ['PREPARADO', 'PREPARADO_MODIFICADO'],
                 acciones: [
                     {
                         estado: 'PREPARADO',
                         label: 'Preparado',
                         desactivadoSi: 'tieneCambios',
-                        permiso: 'SUCURSAL_FABRICA'
+                        permiso: 'SUCURSAL_DESTINO'
                     },
                     {
-                        estado: 'EN_FABRICA_MODIFICADO',
-                        label: 'Preparado Modificado',
+                        estado: 'PREPARADO_MODIFICADO',
+                        label: 'Preparado con Modificaciones',
                         activadoSi: 'tieneCambios',
-                        permiso: 'SUCURSAL_FABRICA'
+                        permiso: 'SUCURSAL_DESTINO'
                     }
                 ],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
-                    modificar: 'SUCURSAL_FABRICA'
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: ['SUCURSAL_DESTINO']
                 }
             },
-            EN_FABRICA_MODIFICADO: {
-                label: 'Modificado en Fabrica',
-                color: 'yellow',
-                siguientesEstados: ['PREPARADO'],
-                acciones: [
-                    {
-                        estado: 'PREPARADO',
-                        label: 'Confirmar Modificacion',
-                        permiso: 'SUCURSAL_FABRICA'
-                    }
-                ],
-                permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
-                    modificar: 'SUCURSAL_FABRICA'
-                }
-            },
+
             PREPARADO: {
                 label: 'Preparado',
                 color: 'green',
@@ -67,38 +67,47 @@ export const usePedidoStore = defineStore('pedido', {
                 acciones: [
                     {
                         estado: 'RECIBIDO',
-                        label: 'Recibido',
+                        label: 'Confirmar Recepción',
                         desactivadoSi: 'tieneCambios',
                         permiso: 'SUCURSAL_ORIGEN'
                     },
                     {
                         estado: 'RECIBIDO_CON_DIFERENCIAS',
-                        label: 'Con Diferencias',
+                        label: 'Recibido con Diferencias',
                         activadoSi: 'tieneCambios',
                         permiso: 'SUCURSAL_ORIGEN'
                     }
                 ],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
-                    modificar: 'SUCURSAL_ORIGEN'
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO']
                 }
             },
+
             PREPARADO_MODIFICADO: {
-                label: 'Preparado con Cambios',
+                label: 'Preparado con Modificaciones',
                 color: 'orange',
-                siguientesEstados: ['RECIBIDO'],
+                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
                 acciones: [
                     {
                         estado: 'RECIBIDO',
-                        label: 'Confirmar Recepcion',
+                        label: 'Confirmar Recepción',
+                        desactivadoSi: 'tieneCambios',
+                        permiso: 'SUCURSAL_ORIGEN'
+                    },
+                    {
+                        estado: 'RECIBIDO_CON_DIFERENCIAS',
+                        label: 'Recibido con Diferencias',
+                        activadoSi: 'tieneCambios',
                         permiso: 'SUCURSAL_ORIGEN'
                     }
                 ],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
-                    modificar: 'SUCURSAL_ORIGEN'
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO']
                 }
             },
+
             RECIBIDO_CON_DIFERENCIAS: {
                 label: 'Con Diferencias',
                 color: 'red',
@@ -107,35 +116,54 @@ export const usePedidoStore = defineStore('pedido', {
                     {
                         estado: 'FINALIZADO',
                         label: 'Aprobar',
-                        permiso: 'SUCURSAL_FABRICA'
+                        permiso: 'SUCURSAL_DESTINO'
                     },
                     {
                         estado: 'EN_FABRICA_MODIFICADO',
-                        label: 'Desaprobar',
+                        label: 'Desaprobar con Cambios',
                         activadoSi: 'tieneCambios',
-                        permiso: 'SUCURSAL_FABRICA'
+                        permiso: 'SUCURSAL_DESTINO'
                     }
                 ],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
-                    modificar: 'SUCURSAL_FABRICA'
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: ['SUCURSAL_DESTINO']
                 }
             },
+
+            RECIBIDO: {
+                label: 'Recibido',
+                color: 'green',
+                siguientesEstados: ['FINALIZADO'],
+                acciones: [
+                    {
+                        estado: 'FINALIZADO',
+                        label: 'Finalizar',
+                        permiso: 'SUCURSAL_DESTINO'
+                    }
+                ],
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
+                    modificar: null
+                }
+            },
+
             FINALIZADO: {
                 label: 'Finalizado',
                 color: 'green',
                 siguientesEstados: [],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
                     modificar: 'ADMIN'
                 }
             },
+
             CANCELADO: {
                 label: 'Cancelado',
                 color: 'red',
                 siguientesEstados: [],
                 permisos: {
-                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_DESTINO'],
                     modificar: null
                 }
             }
@@ -151,8 +179,7 @@ export const usePedidoStore = defineStore('pedido', {
 
             return usuario.sucursales.some(sucursal => {
                 if (sucursal.id === pedido.sucursal_origen) return true;
-                if (sucursal.id === pedido.sucursal_destino &&
-                    pedido.sucursal_destino === pedido.fabrica_id) return true;
+                if (sucursal.id === pedido.sucursal_destino) return true;
                 return false;
             });
         },
@@ -160,68 +187,42 @@ export const usePedidoStore = defineStore('pedido', {
         puedeModificarPedido: (state) => (pedido, usuario) => {
             if (!pedido || !usuario) return false;
 
-            if (usuario.rol === 'ADMIN') {
-                return pedido.estado !== 'CANCELADO';
+            if (['FINALIZADO', 'CANCELADO'].includes(pedido.estado)) {
+                return ['ADMIN', 'DUEÑO'].includes(usuario.rol);
             }
 
             const estadoConfig = state.estadosPedido[pedido.estado];
             if (!estadoConfig?.permisos?.modificar) return false;
 
-            const permisoRequerido = estadoConfig.permisos.modificar;
+            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
 
-            return usuario.sucursales.some(sucursal => {
-                switch (permisoRequerido) {
-                    case 'SUCURSAL_ORIGEN':
-                        return sucursal.id === pedido.sucursal_origen;
-                    case 'SUCURSAL_FABRICA':
-                        return sucursal.id === pedido.sucursal_destino;
-                    default:
-                        return false;
-                }
-            });
-        },
+            const permisos = estadoConfig.permisos.modificar;
+            const usuarioEnSucursalOrigen = usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
+            const usuarioEnSucursalDestino = usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
 
-        obtenerAccionesPermitidas: (state) => (estado, usuario, pedido) => {
-            const estadoConfig = state.estadosPedido[estado];
-            if (!estadoConfig?.acciones) return [];
-
-            return estadoConfig.acciones.filter(accion => {
-                if (usuario.rol === 'ADMIN' && !['FINALIZADO', 'CANCELADO'].includes(estado)) {
-                    return true;
-                }
-
-                const tienePermiso = usuario.sucursales.some(sucursal => {
-                    switch (accion.permiso) {
-                        case 'SUCURSAL_ORIGEN':
-                            return sucursal.id === pedido.sucursal_origen;
-                        case 'SUCURSAL_FABRICA':
-                            return sucursal.id === pedido.sucursal_destino;
-                        default:
-                            return false;
-                    }
+            if (Array.isArray(permisos)) {
+                return permisos.some(permiso => {
+                    if (permiso === 'SUCURSAL_ORIGEN') return usuarioEnSucursalOrigen;
+                    if (permiso === 'SUCURSAL_DESTINO') return usuarioEnSucursalDestino;
+                    return false;
                 });
+            }
 
-                if (!tienePermiso) return false;
+            return permisos === 'ADMIN' && ['ADMIN', 'DUEÑO'].includes(usuario.rol);
+        },
 
-                if (accion.desactivadoSi === 'tieneCambios') {
-                    return !pedido.detalles?.some(d => d.modificado);
-                }
-                if (accion.activadoSi === 'tieneCambios') {
-                    return pedido.detalles?.some(d => d.modificado);
-                }
-
+        puedeVerTotales: () => (pedido, usuario) => {
+            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) {
                 return true;
-            });
+            }
+
+            const usuarioEnSucursalOrigen = usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
+            return usuarioEnSucursalOrigen && ['FINALIZADO', 'RECIBIDO'].includes(pedido.estado);
         },
 
-        puedeCancelarPedido: (state) => (pedido, usuario) => {
-            if (!pedido || !usuario) return false;
-            if (usuario.rol !== 'ADMIN') return false;
-            return !['FINALIZADO', 'CANCELADO'].includes(pedido.estado);
-        },
-
-        puedeVerTotales: (state) => (pedido, usuario) => {
-            return ['ADMIN', 'DUEÑO'].includes(usuario.rol);
+        puedeCancelarPedido: () => (pedido, usuario) => {
+            return ['ADMIN', 'DUEÑO'].includes(usuario.rol) &&
+                !['FINALIZADO', 'CANCELADO'].includes(pedido.estado);
         }
     },
 

@@ -1,4 +1,3 @@
-// src/components/pedidos/nuevo/PedidoHeader.vue
 <template>
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-lg font-bold text-avenida-black">Nuevo Pedido</h3>
@@ -14,16 +13,39 @@
                 Confirmar Pedido
             </button>
         </div>
+
+        <!-- Totales solo para Admin y Dueño -->
+        <div v-if="puedeVerTotales && puedeGuardar" class="ml-4 flex items-center">
+            <span class="font-medium text-gray-700">
+                Total: $ {{ totalFormateado }}
+            </span>
+        </div>
     </div>
 </template>
 
 <script setup>
-defineProps({
-  puedeGuardar: {
-    type: Boolean,
-    required: true
-  }
-});
+    import { computed } from 'vue';
+    import { useNuevoPedidoStore } from '@/stores/nuevoPedidoStore';
 
-defineEmits(['guardar-borrador', 'confirmar']);
+    const nuevoPedidoStore = useNuevoPedidoStore();
+
+    const props = defineProps({
+        puedeGuardar: {
+            type: Boolean,
+            required: true
+        },
+        puedeVerTotales: {
+            type: Boolean,
+            default: false
+        }
+    });
+
+    defineEmits(['guardar-borrador', 'confirmar']);
+
+    const totalFormateado = computed(() => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(nuevoPedidoStore.totalPedido || 0);
+    });
 </script>

@@ -1,9 +1,53 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
+const jwt = require('jsonwebtoken');
 
 router.get('/pedido', async (req, res) => {
     try {
+        // Obtener el token y decodificarlo
+        const token = req.headers.authorization.split(' ')[1];
+        const decodedToken = jwt.verify(token, 'secret_key');
+
+        // Obtener las sucursales del usuario
+        const [userSucursales] = await pool.query(`
+            SELECT us.sucursal_id, s.tipo 
+            FROM usuario_sucursal us 
+            JOIN sucursal s ON us.sucursal_id = s.sucursal_id 
+            WHERE us.usuario_id = ? AND us.activo = 1`,
+            [decodedToken.id]
+        );
+
+        // Identificar si el usuario es de una sucursal fábrica
+        const sucursalesFabrica = userSucursales
+            .filter(s => s.tipo === 'FABRICA_VENTA')
+            .map(s => s.sucursal_id);
+
+        // Construir la condición WHERE dinámicamente
+        let whereCondition = 'p.activo = TRUE AND (';
+        let params = [];
+
+        if (['ADMIN', 'DUEÑO'].includes(decodedToken.rol)) {
+            whereCondition += `
+                (op.tipo = 'ELABORACION_PROPIA' AND s.tipo = 'FABRICA_VENTA')
+                OR op.tipo = 'TERCEROS'
+                OR p.es_sin_tac = 1
+            `;
+        } else {
+            whereCondition += `
+                (
+                    (
+                        op.tipo = 'ELABORACION_PROPIA' 
+                        AND s.tipo = 'FABRICA_VENTA'
+                        AND op.sucursal_fabricante_id NOT IN (${sucursalesFabrica.length > 0 ? sucursalesFabrica.join(',') : '0'})
+                    )
+                    OR op.tipo = 'TERCEROS'
+                    OR p.es_sin_tac = 1
+                )
+            `;
+        }
+        whereCondition += ')';
+
         const [rows] = await pool.query(`
             SELECT DISTINCT
                 p.producto_id,
@@ -30,13 +74,8 @@ router.get('/pedido', async (req, res) => {
             LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
             JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
             JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
-            WHERE p.activo = TRUE
-            AND (
-                (op.tipo = 'ELABORACION_PROPIA' AND s.tipo = 'FABRICA_VENTA')
-                OR op.tipo = 'TERCEROS'
-                OR p.es_sin_tac = 1
-            )
-        `);
+            WHERE ${whereCondition}
+        `, params);
 
         const agrupados = {
             fabricas: {},
@@ -55,26 +94,30 @@ router.get('/pedido', async (req, res) => {
                 }
             } else if (producto.tipo_origen === 'ELABORACION_PROPIA') {
                 const sucursalId = producto.sucursal_pedido;
-                if (!agrupados.fabricas[sucursalId]) {
-                    agrupados.fabricas[sucursalId] = {
-                        nombre: producto.sucursal_nombre,
-                        subcategorias: {}
-                    };
-                }
+                // No agrupar productos de la propia fábrica
+                if (!sucursalesFabrica.includes(sucursalId)) {
+                    if (!agrupados.fabricas[sucursalId]) {
+                        agrupados.fabricas[sucursalId] = {
+                            nombre: producto.sucursal_nombre,
+                            subcategorias: {}
+                        };
+                    }
 
-                if (!agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id]) {
-                    agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id] = {
-                        nombre: producto.subcategoria_nombre,
-                        productos: []
-                    };
-                }
+                    if (!agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id]) {
+                        agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id] = {
+                            nombre: producto.subcategoria_nombre,
+                            productos: []
+                        };
+                    }
 
-                // Verificar si el producto ya existe antes de agregarlo
-                const productoExistente = agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id].productos
-                    .find(p => p.producto_id === producto.producto_id);
+                    const productoExistente = agrupados.fabricas[sucursalId]
+                        .subcategorias[producto.subcategoria_id].productos
+                        .find(p => p.producto_id === producto.producto_id);
 
-                if (!productoExistente) {
-                    agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id].productos.push(producto);
+                    if (!productoExistente) {
+                        agrupados.fabricas[sucursalId]
+                            .subcategorias[producto.subcategoria_id].productos.push(producto);
+                    }
                 }
             } else if (!agrupados.varios.find(p => p.producto_id === producto.producto_id)) {
                 agrupados.varios.push(producto);
@@ -83,9 +126,10 @@ router.get('/pedido', async (req, res) => {
 
         return res.json(agrupados);
     } catch (error) {
-        console.error('Error en /pedido:', error);
+        console.error('Error detallado en /pedido:', error);
         return res.status(500).json({
-            message: error.message,
+            message: 'Error al obtener productos',
+            error: error.message,
             stack: error.stack
         });
     }

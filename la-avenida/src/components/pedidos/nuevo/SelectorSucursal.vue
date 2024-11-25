@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-    import { ref, onMounted } from 'vue';
+    import { ref, computed, onMounted, watch } from 'vue';
     import { useNuevoPedidoStore } from '@/stores/nuevoPedidoStore';
     import { useAuthStore } from '@/stores/auth';
 
@@ -53,4 +53,10 @@
             }
         }
     });
+
+    watch(() => authStore.user.sucursales, (newSucursales) => {
+        if (newSucursales.length === 1 && !sucursalSeleccionada.value) {
+            seleccionarSucursal(newSucursales[0]);
+        }
+    }, { immediate: true });
 </script>

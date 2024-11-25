@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import axios from '@/utils/axios-config';
+import { useAuthStore } from '@/stores/auth';
 
 export const useNuevoPedidoStore = defineStore('nuevoPedido', {
     state: () => ({
@@ -38,11 +39,16 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
     },
 
     actions: {
-        async inicializarPedido(modo = 'NUEVO', borrador = null) {
+        async inicializarPedido(modo = 'NUEVO', borrador = null, sucursalUnica = null) {
             try {
                 this.cargando = true;
                 this.modo = modo;
                 this.error = null;
+
+                // Si recibimos una sucursal única, la asignamos
+                if (sucursalUnica) {
+                    this.pedido.sucursal_origen = sucursalUnica;
+                }
 
                 if (borrador) {
                     this.pedido = this.convertirBorradorAPedido(borrador);

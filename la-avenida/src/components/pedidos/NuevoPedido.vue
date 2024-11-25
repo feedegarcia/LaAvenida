@@ -14,6 +14,7 @@
         <template v-else>
             <!-- Header con botones de acción -->
             <PedidoHeader :puede-guardar="nuevoPedidoStore.tieneProductosSeleccionados || false"
+                          :puede-ver-totales="puedeVerTotales"
                           @guardar-borrador="guardarBorrador"
                           @confirmar="confirmarPedido" />
 
@@ -27,7 +28,7 @@
             <SeleccionProductos />
 
             <!-- Resumen del pedido (totales, cantidades) -->
-            <div v-if="nuevoPedidoStore.tieneProductosSeleccionados"
+            <div v-if="nuevoPedidoStore.tieneProductosSeleccionados && puedeVerTotales"
                  class="bg-gray-50 p-4 rounded-lg mb-6">
                 <div class="flex flex-col space-y-2">
                     <span class="text-sm text-gray-600">
@@ -50,7 +51,6 @@
     import { useRouter } from 'vue-router';
     import { useNuevoPedidoStore } from '@/stores/nuevoPedidoStore';
     import { useAuthStore } from '@/stores/auth';
-    import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
     // Componentes
     import PedidoHeader from '@/components/pedidos/nuevo/PedidoHeader.vue';
@@ -62,10 +62,9 @@
     const router = useRouter();
     const nuevoPedidoStore = useNuevoPedidoStore();
     const authStore = useAuthStore();
-    const pedidoStore = usePedidoStore();
 
     // Computed properties
-    const puedeVerCostos = computed(() => {
+    const puedeVerTotales = computed(() => {
         return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
     });
 
@@ -124,12 +123,19 @@
     // Lifecycle hooks
     onMounted(async () => {
         const borradorId = router.currentRoute.value.query.borrador;
+        let sucursalUnica = null;
+
+        // Si el usuario tiene una sola sucursal, la pasamos al inicializar
+        if (authStore.user.sucursales.length === 1) {
+            sucursalUnica = authStore.user.sucursales[0].id;
+        }
+
         if (borradorId) {
             // Cargar borrador existente
-            await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId);
+            await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId, sucursalUnica);
         } else {
             // Iniciar nuevo pedido
-            await nuevoPedidoStore.inicializarPedido();
+            await nuevoPedidoStore.inicializarPedido('NUEVO', null, sucursalUnica);
         }
     });
 

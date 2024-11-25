@@ -76,56 +76,54 @@
     const pedidos = ref([]);
     const sucursalSeleccionada = ref(null);
     const loading = ref(false);
-    const sucursalesUsuario = ref([]);
+    const sucursalesUsuario = ref([]); 
+
     const paginacion = ref({});
 
-    // Definición de secciones actualizada para mejor organización
-    const seccionesOrdenadas = computed(() => [
-        {
-            id: 'pedidos-cola',
-            titulo: 'Pedidos por Recibir',
-            tipo: 'destino',
-            columnas: [
-                {
-                    id: 'en_fabrica',
-                    titulo: 'En Fábrica',
-                    estados: ['EN_FABRICA']
-                },
-                {
-                    id: 'preparado',
-                    titulo: 'Preparados',
-                    estados: ['PREPARADO', 'PREPARADO_MODIFICADO']
-                },
-                {
-                    id: 'finalizados',
-                    titulo: 'Finalizados',
-                    estados: ['RECIBIDO', 'FINALIZADO']
-                }
-            ]
-        },
-        {
-            id: 'pedidos-realizados',
-            titulo: 'Pedidos Realizados',
-            tipo: 'origen',
-            columnas: [
-                {
-                    id: 'borradores',
-                    titulo: 'Borradores',
-                    estados: ['BORRADOR']
-                },
-                {
-                    id: 'en_proceso',
-                    titulo: 'En Proceso',
-                    estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO', 'PREPARADO', 'PREPARADO_MODIFICADO']
-                },
-                {
-                    id: 'finalizados',
-                    titulo: 'Finalizados',
-                    estados: ['RECIBIDO', 'FINALIZADO']
-                }
-            ]
-        }
-    ]);
+    const seccionesOrdenadas = computed(() => {
+        return [
+            {
+                id: 'pedidos-cola',
+                titulo: 'Pedidos por Procesar',
+                columnas: [
+                    {
+                        id: 'en_fabrica',
+                        titulo: 'En Fábrica',
+                        estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO']
+                    },
+                    {
+                        id: 'finalizados',
+                        titulo: 'Finalizados',
+                        estados: ['FINALIZADO']
+                    }
+                ]
+            },
+            {
+                id: 'pedidos-realizados',
+                titulo: 'Pedidos Realizados',
+                tipo: 'origen', // Se usa para filtrar por sucursal de origen
+                columnas: [
+                    {
+                        id: 'borradores',
+                        titulo: 'Borradores',
+                        estados: ['BORRADOR']
+                    },
+                    {
+                        id: 'en_proceso',
+                        titulo: 'En Proceso',
+                        estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO', 'PREPARADO', 'PREPARADO_MODIFICADO']
+                    },
+                    {
+                        id: 'finalizados',
+                        titulo: 'Finalizados',
+                        estados: ['RECIBIDO', 'FINALIZADO']
+                    }
+                ]
+            }
+        ];
+    });
+
+
 
     // Funciones de paginación
     const getPagina = (seccionId, columnaId) => {
@@ -189,30 +187,27 @@
         return sucursal?.sucursal_id;
     };
 
-    const cargarDatos = async () => {
-        try {
-            loading.value = true;
+        const cargarDatos = async () => {
+            try {
+                loading.value = true;
 
-            const [sucursalesRes, pedidosRes] = await Promise.all([
-                axios.get(`/api/users/${authStore.user.id}/sucursales`),
-                axios.get('/api/pedidos')
-            ]);
+                const [sucursalesRes, pedidosRes] = await Promise.all([
+                    axios.get(`/api/users/${authStore.user.id}/sucursales`),
+                    axios.get('/api/pedidos')
+                ]);
 
-            // Log detallado del primer pedido
-            
+                sucursalesUsuario.value = sucursalesRes.data;
+                pedidos.value = pedidosRes.data;
 
-            sucursalesUsuario.value = sucursalesRes.data;
-            pedidos.value = pedidosRes.data;
-
-            if (sucursalesUsuario.value.length > 0 && !sucursalSeleccionada.value) {
-                sucursalSeleccionada.value = sucursalesUsuario.value[0].sucursal_id;
+                if (sucursalesUsuario.value.length > 0 && !sucursalSeleccionada.value) {
+                    sucursalSeleccionada.value = sucursalesUsuario.value[0].sucursal_id;
+                }
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+            } finally {
+                loading.value = false;
             }
-        } catch (error) {
-            console.error('Error cargando datos:', error);
-        } finally {
-            loading.value = false;
-        }
-    };
+        };
 
 
     onMounted(() => {
