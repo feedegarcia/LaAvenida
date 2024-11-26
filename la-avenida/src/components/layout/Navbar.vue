@@ -4,14 +4,14 @@
         <nav class="bg-avenida-black/95 backdrop-blur-sm border-b border-white/10">
             <div class="container mx-auto px-4 lg:px-8">
                 <div class="flex justify-between items-center h-20">
-                    <!-- Menú hamburguesa para móvil -->
+                    <!-- Menu hamburguesa para movil -->
                     <button @click="mobileMenuOpen = !mobileMenuOpen"
                             class="lg:hidden text-white/90 hover:text-avenida-green">
                         <Menu v-if="!mobileMenuOpen" class="w-6 h-6" />
                         <X v-else class="w-6 h-6" />
                     </button>
 
-                    <!-- Links de navegación -->
+                    <!-- Links de navegacion -->
                     <div class="hidden lg:flex items-center space-x-1 flex-1">
                         <router-link v-for="link in navigationLinks"
                                      :key="link.to"
@@ -21,7 +21,7 @@
                         </router-link>
                         <button @click="logout"
                                 class="nav-button group">
-                            <span class="relative z-10 text-red-400 hover:text-red-300">CERRAR SESIÓN</span>
+                            <span class="relative z-10 text-red-400 hover:text-red-300">CERRAR SESIoN</span>
                         </button>
                     </div>
 
@@ -39,7 +39,7 @@
             </div>
         </nav>
 
-        <!-- Menú móvil -->
+        <!-- Menu movil -->
         <transition enter-active-class="transition duration-200 ease-out"
                     enter-from-class="opacity-0 -translate-y-1"
                     enter-to-class="opacity-100 translate-y-0"
@@ -58,7 +58,7 @@
                     </router-link>
                     <button @click="logout"
                             class="mobile-nav-button text-red-400 hover:text-red-300 text-left w-full">
-                        CERRAR SESIÓN
+                        CERRAR SESIoN
                     </button>
                 </div>
             </div>

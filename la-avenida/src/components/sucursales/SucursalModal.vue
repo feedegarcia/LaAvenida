@@ -20,18 +20,18 @@
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
                 </div>
 
-                <!-- Dirección -->
+                <!-- Direccion -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Dirección</label>
+                    <label class="block text-sm font-medium text-gray-700">Direccion</label>
                     <input v-model="formData.direccion"
                            type="text"
                            required
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
                 </div>
 
-                <!-- Teléfono -->
+                <!-- Telefono -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Teléfono</label>
+                    <label class="block text-sm font-medium text-gray-700">Telefono</label>
                     <input v-model="formData.telefono"
                            type="text"
                            required
@@ -44,19 +44,19 @@
                     <select v-model="formData.tipo"
                             required
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="FABRICA_VENTA">Fábrica y Venta</option>
+                        <option value="FABRICA_VENTA">Fabrica y Venta</option>
                         <option value="SOLO_VENTA">Solo Venta</option>
                     </select>
                 </div>
 
                 <!-- Color -->
                 <ColorPicker v-model="formData.color">
-                    Color de identificación
+                    Color de identificacion
                 </ColorPicker>
 
-                <!-- Horario de atención -->
+                <!-- Horario de atencion -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Horario de Atención</label>
+                    <label class="block text-sm font-medium text-gray-700">Horario de Atencion</label>
                     <input v-model="formData.horario_atencion"
                            type="text"
                            placeholder="Ej: 9:00 a 20:00"

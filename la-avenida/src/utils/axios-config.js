@@ -3,7 +3,7 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-// Crear instancia de axios con configuración base
+// Crear instancia de axios con configuracion base
 const axiosInstance = axios.create({
     baseURL: 'http://localhost:3000'
 });
@@ -25,7 +25,7 @@ axiosInstance.interceptors.request.use(
         config.signal = newController.signal;
         activeControllers.set(config.url, newController);
 
-        // Agregar token de autorización
+        // Agregar token de autorizacion
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;

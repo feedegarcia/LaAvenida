@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-// Middleware de validación de sucursal
+// Middleware de validacion de sucursal
 const validateSucursal = (req, res, next) => {
     const { nombre, direccion, telefono, tipo, horario_atencion, color } = req.body;
     if (!nombre || !direccion || !telefono || !tipo || !horario_atencion) {
@@ -14,14 +14,14 @@ const validateSucursal = (req, res, next) => {
     }
     if (!['FABRICA_VENTA', 'SOLO_VENTA'].includes(tipo)) {
         return res.status(400).json({
-            message: 'Tipo de sucursal inválido',
+            message: 'Tipo de sucursal invalido',
             allowedTypes: ['FABRICA_VENTA', 'SOLO_VENTA']
         });
     }
     // Validar formato de color si se proporciona
     if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
         return res.status(400).json({
-            message: 'Formato de color inválido. Debe ser un color hexadecimal (ej: #FF0000)'
+            message: 'Formato de color invalido. Debe ser un color hexadecimal (ej: #FF0000)'
         });
     }
     next();
@@ -69,7 +69,7 @@ router.get('/activas', authenticateToken, async (req, res) => {
     }
 });
 
-// Obtener una sucursal específica
+// Obtener una sucursal especifica
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const [sucursales] = await pool.query(
@@ -194,7 +194,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
             [activo, id]
         );
 
-        // Si se está desactivando la sucursal, desactivar también las relaciones usuario-sucursal
+        // Si se esta desactivando la sucursal, desactivar tambien las relaciones usuario-sucursal
         if (!activo) {
             await connection.query(
                 'UPDATE usuario_sucursal SET activo = 0 WHERE sucursal_id = ?',
@@ -217,12 +217,12 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
     }
 });
 
-// Obtener estadísticas de una sucursal
+// Obtener estadisticas de una sucursal
 router.get('/:id/stats', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Obtener estadísticas básicas
+        // Obtener estadisticas basicas
         const [stats] = await pool.query(`
             SELECT 
                 COUNT(DISTINCT u.usuario_id) as total_usuarios,
@@ -243,7 +243,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
         res.json(stats[0]);
     } catch (error) {
         console.error('Error en GET /sucursales/:id/stats:', error);
-        res.status(500).json({ message: 'Error al obtener estadísticas', error: error.message });
+        res.status(500).json({ message: 'Error al obtener estadisticas', error: error.message });
     }
 });
 

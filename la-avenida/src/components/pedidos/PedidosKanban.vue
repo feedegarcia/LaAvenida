@@ -88,7 +88,7 @@
                 columnas: [
                     {
                         id: 'en_fabrica',
-                        titulo: 'En Fábrica',
+                        titulo: 'En Fabrica',
                         estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO']
                     },
                     {
@@ -125,7 +125,7 @@
 
 
 
-    // Funciones de paginación
+    // Funciones de paginacion
     const getPagina = (seccionId, columnaId) => {
         const key = `${seccionId}_${columnaId}`;
         return paginacion.value[key] || 1;
@@ -164,7 +164,7 @@
             const sucursalId = parseInt(sucursalSeleccionada.value);
 
 
-            // Obtener la sucursal correspondiente según el tipo
+            // Obtener la sucursal correspondiente segun el tipo
             let pedidoSucursalId;
             if (tipo === 'origen') {
                 pedidoSucursalId = parseInt(pedido.sucursal_origen) || null;
@@ -175,7 +175,7 @@
             const esSucursalCorrecta = pedidoSucursalId === sucursalId;
             const estadoCorrecto = estados.includes(pedido.estado);
 
-            // Log del resultado de la evaluación
+            // Log del resultado de la evaluacion
           
 
             return esSucursalCorrecta && estadoCorrecto;
@@ -214,7 +214,7 @@
         cargarDatos();
     });
 
-    // Exponer método de recarga
+    // Exponer metodo de recarga
     defineExpose({
         recargarPedidos: cargarDatos
     });

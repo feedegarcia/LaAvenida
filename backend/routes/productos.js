@@ -18,12 +18,12 @@ router.get('/pedido', async (req, res) => {
             [decodedToken.id]
         );
 
-        // Identificar si el usuario es de una sucursal fábrica
+        // Identificar si el usuario es de una sucursal fabrica
         const sucursalesFabrica = userSucursales
             .filter(s => s.tipo === 'FABRICA_VENTA')
             .map(s => s.sucursal_id);
 
-        // Construir la condición WHERE dinámicamente
+        // Construir la condicion WHERE dinamicamente
         let whereCondition = 'p.activo = TRUE AND (';
         let params = [];
 
@@ -94,7 +94,7 @@ router.get('/pedido', async (req, res) => {
                 }
             } else if (producto.tipo_origen === 'ELABORACION_PROPIA') {
                 const sucursalId = producto.sucursal_pedido;
-                // No agrupar productos de la propia fábrica
+                // No agrupar productos de la propia fabrica
                 if (!sucursalesFabrica.includes(sucursalId)) {
                     if (!agrupados.fabricas[sucursalId]) {
                         agrupados.fabricas[sucursalId] = {

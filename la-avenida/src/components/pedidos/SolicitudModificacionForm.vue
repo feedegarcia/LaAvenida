@@ -2,7 +2,7 @@
     <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
         <!-- Header -->
         <div class="flex justify-between items-start mb-6">
-            <h3 class="text-lg font-bold text-gray-900">Solicitud de Modificación</h3>
+            <h3 class="text-lg font-bold text-gray-900">Solicitud de Modificacion</h3>
             <button @click="cerrarModal"
                     class="text-gray-400 hover:text-gray-600">
                 <X class="w-5 h-5" />

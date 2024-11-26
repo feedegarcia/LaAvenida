@@ -2,7 +2,7 @@
     <div class="space-y-6">
         <!-- Header -->
         <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-avenida-black">Gestión de Pedidos</h2>
+            <h2 class="text-2xl font-bold text-avenida-black">Gestion de Pedidos</h2>
             <div class="flex items-center space-x-4">
                 <router-link v-if="puedeCrearPedidos"
                              to="/pedidos/nuevo"

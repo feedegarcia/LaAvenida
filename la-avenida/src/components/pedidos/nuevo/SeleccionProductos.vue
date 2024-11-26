@@ -1,6 +1,6 @@
 <template>
     <div>
-        <!-- Sección de Fábricas -->
+        <!-- Seccion de Fabricas -->
         <div v-if="productosStore.fabricas"
              v-for="(productos, fabricaId) in productosStore.fabricas"
              :key="fabricaId"
@@ -10,7 +10,7 @@
             <div v-for="subcategoria in obtenerSubcategoriasOrdenadas(fabricaId)"
                  :key="subcategoria.subcategoria_id"
                  class="border rounded-lg mb-4">
-                <!-- Header de subcategoría -->
+                <!-- Header de subcategoria -->
                 <div class="bg-gray-50 p-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2 flex-1">
@@ -49,7 +49,7 @@
                          class="grid grid-cols-4 gap-2 items-center text-sm py-1">
                         <span>{{ formatearNombre(producto.nombre) }}</span>
                         <span class="text-gray-600">Stock: {{ producto.stock || 0 }}</span>
-                        <span class="text-gray-600">Último: {{ producto.ultimo_pedido || '-' }}</span>
+                        <span class="text-gray-600">ultimo: {{ producto.ultimo_pedido || '-' }}</span>
                         <div class="flex items-center justify-end gap-2">
                             <input type="number"
                                    :value="obtenerCantidad(producto.producto_id)"
@@ -70,13 +70,13 @@
             </div>
         </div>
 
-        <!-- Sección de Sin TAC -->
+        <!-- Seccion de Sin TAC -->
         <div v-if="productosStore.sinTac?.length > 0" class="border rounded-lg p-4 mb-4">
             <h4 class="text-xl font-bold mb-4">Productos Sin TAC</h4>
             <!-- Lista de productos sin TAC similar a la de arriba -->
         </div>
 
-        <!-- Sección de Varios -->
+        <!-- Seccion de Varios -->
         <div v-if="productosStore.varios?.length > 0" class="border rounded-lg p-4 mb-4">
             <h4 class="text-xl font-bold mb-4">Otros Productos</h4>
             <!-- Lista de productos varios similar a la de arriba -->

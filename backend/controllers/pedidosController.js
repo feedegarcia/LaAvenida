@@ -112,7 +112,7 @@ const createPedido = async (req, res) => {
             tipo = 'PEDIDO_FABRICA',
             detalles,
             notas,
-            estado = 'EN_FABRICA' // Permitir estado como parámetro
+            estado = 'EN_FABRICA' // Permitir estado como parametro
         } = req.body;
 
         // Validar que el usuario tiene acceso a la sucursal
@@ -231,7 +231,7 @@ const updatePedidoEstado = async (req, res) => {
         res.json({ message: 'Estado actualizado exitosamente' });
     } catch (error) {
         await connection.rollback();
-        console.error('Error en actualización de estado:', error);
+        console.error('Error en actualizacion de estado:', error);
         res.status(500).json({ error: error.message });
     } finally {
         connection.release();
@@ -290,7 +290,7 @@ const agregarProductosAPedido = async (req, res) => {
         const { pedido_id } = req.params;
         const { productos, sucursal_id } = req.body;
 
-        // Verificar que el pedido existe y está en estado modificable
+        // Verificar que el pedido existe y esta en estado modificable
         const [pedido] = await connection.query(
             'SELECT * FROM pedido WHERE pedido_id = ?',
             [pedido_id]
@@ -302,10 +302,10 @@ const agregarProductosAPedido = async (req, res) => {
 
         const estadosModificables = ['EN_FABRICA', 'PREPARADO'];
         if (!estadosModificables.includes(pedido[0].estado)) {
-            throw new Error('El pedido no está en un estado que permita modificaciones');
+            throw new Error('El pedido no esta en un estado que permita modificaciones');
         }
 
-        // Verificar que los productos son de la fábrica correcta
+        // Verificar que los productos son de la fabrica correcta
         for (const producto of productos) {
             const [productoInfo] = await connection.query(
                 `SELECT sucursal_fabricante_id FROM producto p
@@ -315,7 +315,7 @@ const agregarProductosAPedido = async (req, res) => {
             );
 
             if (!productoInfo.length || productoInfo[0].sucursal_fabricante_id !== pedido[0].sucursal_destino) {
-                throw new Error('Uno o más productos no pertenecen a la fábrica correcta');
+                throw new Error('Uno o mas productos no pertenecen a la fabrica correcta');
             }
         }
 

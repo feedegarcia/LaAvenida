@@ -7,7 +7,7 @@
                 <h4 class="font-medium">{{ pedido.destino }}</h4>
                 <span v-if="highlight"
                       class="inline-block px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full mt-1">
-                    Modificación pendiente
+                    Modificacion pendiente
                 </span>
             </div>
             <span :class="{

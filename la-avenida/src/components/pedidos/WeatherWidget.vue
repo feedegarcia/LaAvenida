@@ -15,7 +15,7 @@
         <!-- Contenido -->
         <template v-else>
             <h3 class="text-base font-semibold mb-2">
-                Pronóstico para el día seleccionado
+                Pronostico para el dia seleccionado
             </h3>
 
             <div class="grid grid-cols-3 gap-2">
@@ -81,7 +81,7 @@
     const loading = ref(false);
     const error = ref(null);
 
-    // Sistema de caché mejorado
+    // Sistema de cache mejorado
     const cacheKey = computed(() => {
         const fecha = props.fechaPedido instanceof Date ?
             props.fechaPedido : new Date(props.fechaPedido);
@@ -108,7 +108,7 @@
         }));
     };
 
-    // Computed para procesar datos del pronóstico
+    // Computed para procesar datos del pronostico
     const diasPronostico = computed(() => {
         if (!pronostico.value.length) return [];
 
@@ -183,7 +183,7 @@
             loading.value = true;
             error.value = null;
 
-            // Verificar caché
+            // Verificar cache
             const cachedData = checkCache(cacheKey.value);
             if (cachedData) {
                 pronostico.value = cachedData;
@@ -199,13 +199,13 @@
             );
 
             if (!response.ok) {
-                throw new Error('Error al cargar el pronóstico');
+                throw new Error('Error al cargar el pronostico');
             }
 
             const data = await response.json();
 
             if (!data.daily?.time) {
-                throw new Error('Formato de datos inválido');
+                throw new Error('Formato de datos invalido');
             }
 
             const formattedData = data.daily.time.map((fecha, index) => ({
@@ -219,7 +219,7 @@
             pronostico.value = formattedData;
         } catch (error) {
             console.error('Error en cargarPronostico:', error);
-            error.value = 'No se pudo cargar el pronóstico del tiempo';
+            error.value = 'No se pudo cargar el pronostico del tiempo';
         } finally {
             loading.value = false;
         }

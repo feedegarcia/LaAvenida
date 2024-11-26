@@ -17,11 +17,11 @@
                         </span>
                     </div>
                     <p class="text-sm text-gray-600">
-                        Última actualización: {{ formatearFecha(pedido.updated_at) }}
+                        ultima actualizacion: {{ formatearFecha(pedido.updated_at) }}
                     </p>
                 </div>
 
-                <!-- Botones de acción -->
+                <!-- Botones de accion -->
                 <div class="flex gap-2">
                     <template v-for="accion in accionesDisponibles"
                               :key="accion.estado">
@@ -42,7 +42,7 @@
                         </button>
                     </template>
 
-                    <!-- Botón de cancelar -->
+                    <!-- Boton de cancelar -->
                     <button v-if="puedeCancelarPedido"
                             @click="confirmarCancelacion"
                             class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700">
@@ -61,7 +61,7 @@
                           @modificacion="handleModificacion"
                           @agregar-producto="handleAgregarProducto" />
 
-        <!-- Modal de confirmación de cancelación -->
+        <!-- Modal de confirmacion de cancelacion -->
         <Dialog v-if="mostrarConfirmacionCancelacion"
                 @close="mostrarConfirmacionCancelacion = false"
                 class="relative z-50">
@@ -69,10 +69,10 @@
             <div class="fixed inset-0 flex items-center justify-center p-4">
                 <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6">
                     <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900 mb-4">
-                        Confirmar Cancelación
+                        Confirmar Cancelacion
                     </DialogTitle>
                     <p class="text-sm text-gray-500">
-                        ¿Está seguro que desea cancelar este pedido?
+                        ¿Esta seguro que desea cancelar este pedido?
                     </p>
                     <div class="mt-4 flex justify-end space-x-3">
                         <button @click="mostrarConfirmacionCancelacion = false"
@@ -81,7 +81,7 @@
                         </button>
                         <button @click="cancelarPedido"
                                 class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-                            Sí, cancelar
+                            Si, cancelar
                         </button>
                     </div>
                 </DialogPanel>
@@ -215,12 +215,17 @@
     const handleAgregarProducto = async (producto) => {
         try {
             const response = await axios.post(`/api/pedidos/${props.pedido.pedido_id}/productos`, {
-                productos: [producto],
+                productos: [{
+                    producto_id: producto.producto_id,
+                    cantidad: producto.cantidad,
+                    precio_unitario: producto.precio_mayorista || producto.precio_unitario
+                }],
                 sucursal_id: authStore.user.sucursales[0]?.id
             });
             emit('estado-actualizado', response.data);
         } catch (error) {
-            console.error('Error al agregar producto:', error);
+            console.error('Error detallado:', error.response?.data);
+            // Aqui podriamos agregar un toast o notificacion al usuario
         }
     };
 

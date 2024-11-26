@@ -2,15 +2,15 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\middleware",
-    "\\backend\\routes",
+    "\\backend\\config",
+    "\\backend\\controllers",
     "\\la-avenida",
+    "\\la-avenida\\public",
     "\\la-avenida\\src",
+    "\\la-avenida\\src\\assets",
     "\\la-avenida\\src\\components",
-    "\\la-avenida\\src\\components\\pedidos",
-    "\\la-avenida\\src\\router",
-    "\\la-avenida\\src\\views"
+    "\\la-avenida\\src\\components\\calendario"
   ],
-  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\PedidoCard.vue",
+  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\HistorialModal.vue",
   "PreviewInSolutionExplorer": false
 }

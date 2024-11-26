@@ -45,7 +45,7 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 this.modo = modo;
                 this.error = null;
 
-                // Si recibimos una sucursal única, la asignamos
+                // Si recibimos una sucursal unica, la asignamos
                 if (sucursalUnica) {
                     this.pedido.sucursal_origen = sucursalUnica;
                 }
@@ -163,7 +163,7 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                         resultados.push({
                             fabrica: fabricaId,
                             resultado: response.data,
-                            estado: 'éxito'
+                            estado: 'exito'
                         });
                     } catch (error) {
                         resultados.push({
@@ -176,7 +176,7 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
 
                 const errores = resultados.filter(r => r.estado === 'error');
                 if (errores.length > 0) {
-                    throw new Error(`Error al crear pedidos para ${errores.length} fábricas: ${errores.map(e => e.error).join(', ')}`);
+                    throw new Error(`Error al crear pedidos para ${errores.length} fabricas: ${errores.map(e => e.error).join(', ')}`);
                 }
 
                 return {

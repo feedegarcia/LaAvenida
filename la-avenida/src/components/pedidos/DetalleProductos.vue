@@ -26,12 +26,18 @@
                             class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Acciones
                         </th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Eliminar
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <tr v-for="detalle in detalles"
                         :key="detalle.detalle_id"
-                        :style="getRowStyle(detalle)">
+                        :class="[
+                            detalle.modificado ? getModificacionStyle(detalle) : '',
+                            'transition-colors duration-300'
+                        ]">
                         <td class="px-4 py-3">
                             <div class="flex items-center">
                                 <span class="font-medium">{{ detalle.producto_nombre }}</span>
@@ -51,8 +57,7 @@
                                        v-model.number="cantidadesModificadas[detalle.detalle_id]"
                                        :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
                                        min="0"
-                                       class="w-20 text-right border rounded-md"
-                                       @input="actualizarCantidad(detalle.detalle_id, $event.target.value)">
+                                       class="w-20 text-right border rounded-md">
                             </template>
                             <template v-else>
                                 {{ detalle.cantidad_confirmada || detalle.cantidad_solicitada }}
@@ -65,10 +70,22 @@
                             $ {{ formatoMoneda(detalle.precio_unitario * (detalle.cantidad_confirmada || detalle.cantidad_solicitada)) }}
                         </td>
                         <td v-if="puedeModificar" class="px-4 py-3 text-center">
-                            <button v-if="hayCambios(detalle)"
-                                    @click="guardarCambios(detalle)"
-                                    class="text-sm bg-emerald-500 text-white px-3 py-1 rounded hover:bg-emerald-600">
+                            <button @click="guardarCambios(detalle)"
+                                    v-bind:disabled="!hayCambios(detalle)"
+                                    :class="{
+                                        'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
+                                        'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
+                                        'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
+                                    }">
                                 Guardar
+                            </button>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button @click="eliminarProducto(detalle)"
+                                    v-bind:disabled="!puedeModificar"
+                                    class="text-red-500 hover:text-red-700 transition-colors duration-200"
+                                    title="Eliminar producto">
+                                <XIcon class="w-5 h-5" />
                             </button>
                         </td>
                     </tr>
@@ -80,12 +97,13 @@
                             $ {{ formatoMoneda(totalPedido) }}
                         </td>
                         <td v-if="puedeModificar"></td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
 
-        <!-- Botón y Modal para agregar productos -->
+        <!-- Boton y Modal para agregar productos -->
         <div v-if="puedeModificar" class="mt-4">
             <button @click="mostrarSelectorProductos = true"
                     class="px-4 py-2 text-sm bg-emerald-500 text-white rounded hover:bg-emerald-600">
@@ -94,76 +112,94 @@
         </div>
 
         <!-- Modal de Selector de Productos -->
-        <Dialog :open="mostrarSelectorProductos"
-                @close="mostrarSelectorProductos = false"
-                class="relative z-50">
-            <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
-            <div class="fixed inset-0 flex items-center justify-center p-4">
-                <DialogPanel class="w-full max-w-2xl bg-white rounded-lg p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-medium">Agregar Productos</h3>
-                        <button @click="mostrarSelectorProductos = false"
-                                class="text-gray-500 hover:text-gray-700">
-                            <X class="h-5 w-5" />
-                        </button>
-                    </div>
+        <TransitionRoot appear :show="mostrarSelectorProductos" as="template">
+            <Dialog as="div" @close="mostrarSelectorProductos = false" class="relative z-50">
+                <TransitionChild as="template"
+                                 enter="duration-300 ease-out"
+                                 enter-from="opacity-0"
+                                 enter-to="opacity-100"
+                                 leave="duration-200 ease-in"
+                                 leave-from="opacity-100"
+                                 leave-to="opacity-0">
+                    <div class="fixed inset-0 bg-black bg-opacity-25" />
+                </TransitionChild>
 
-                    <!-- Buscador -->
-                    <div class="mb-4">
-                        <input type="text"
-                               v-model="busquedaProducto"
-                               placeholder="Buscar por nombre o código..."
-                               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
-                    </div>
+                <div class="fixed inset-0 overflow-y-auto">
+                    <div class="flex min-h-full items-center justify-center p-4">
+                        <TransitionChild as="template"
+                                         enter="duration-300 ease-out"
+                                         enter-from="opacity-0 scale-95"
+                                         enter-to="opacity-100 scale-100"
+                                         leave="duration-200 ease-in"
+                                         leave-from="opacity-100 scale-100"
+                                         leave-to="opacity-0 scale-95">
+                            <DialogPanel class="w-full max-w-2xl transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h3 class="text-lg font-medium">Agregar Productos</h3>
+                                    <button @click="mostrarSelectorProductos = false"
+                                            class="text-gray-500 hover:text-gray-700">
+                                        <X class="h-5 w-5" />
+                                    </button>
+                                </div>
 
-                    <!-- Lista de productos -->
-                    <div class="max-h-96 overflow-y-auto">
-                        <div v-if="productosFiltrados.length === 0"
-                             class="text-center py-4 text-gray-500">
-                            No se encontraron productos
-                        </div>
-                        <div v-else
-                             v-for="producto in productosFiltrados"
-                             :key="producto.producto_id"
-                             class="p-4 border-b hover:bg-gray-50 flex items-center justify-between">
-                            <div>
-                                <p class="font-medium">{{ producto.nombre }}</p>
-                                <p class="text-sm text-gray-500">
-                                    Código: {{ producto.codigo }}
-                                    <span class="ml-2">Stock: {{ producto.stock || 0 }}</span>
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <input type="number"
-                                       v-model="nuevasSelecciones[producto.producto_id]"
-                                       min="0"
-                                       placeholder="Cantidad"
-                                       class="w-24 px-2 py-1 border rounded text-right" />
-                                <button @click="agregarProducto(producto)"
-                                        :disabled="!nuevasSelecciones[producto.producto_id]"
-                                        class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    Agregar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                                <!-- Buscador -->
+                                <div class="mb-4">
+                                    <input type="text"
+                                           v-model="busquedaProducto"
+                                           placeholder="Buscar por nombre o codigo..."
+                                           class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                                </div>
 
-                    <div class="mt-6 flex justify-end">
-                        <button @click="mostrarSelectorProductos = false"
-                                class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">
-                            Cerrar
-                        </button>
+                                <!-- Lista de productos -->
+                                <div class="max-h-96 overflow-y-auto">
+                                    <div v-if="productosFiltrados.length === 0"
+                                         class="text-center py-4 text-gray-500">
+                                        No se encontraron productos
+                                    </div>
+                                    <div v-else
+                                         v-for="producto in productosFiltrados"
+                                         :key="producto.producto_id"
+                                         class="p-4 border-b hover:bg-gray-50 flex items-center justify-between">
+                                        <div>
+                                            <p class="font-medium">{{ producto.nombre }}</p>
+                                            <p class="text-sm text-gray-500">
+                                                Codigo: {{ producto.codigo }}
+                                                <span class="ml-2">Stock: {{ producto.stock || 0 }}</span>
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="number"
+                                                   v-model="nuevasSelecciones[producto.producto_id]"
+                                                   min="0"
+                                                   placeholder="Cantidad"
+                                                   class="w-24 px-2 py-1 border rounded text-right" />
+                                            <button @click="agregarProducto(producto)"
+                                                    v-bind:disabled="!nuevasSelecciones[producto.producto_id]"
+                                                    class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex justify-end">
+                                    <button @click="mostrarSelectorProductos = false"
+                                            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </DialogPanel>
+                        </TransitionChild>
                     </div>
-                </DialogPanel>
-            </div>
-        </Dialog>
+                </div>
+            </Dialog>
+        </TransitionRoot>
     </div>
 </template>
-
 <script setup>
     import { ref, computed } from 'vue';
-    import { Dialog, DialogPanel } from '@headlessui/vue';
-    import { X } from 'lucide-vue-next';
+    import { Dialog, DialogPanel, DialogOverlay, TransitionChild, TransitionRoot } from '@headlessui/vue';
+    import { X, X as XIcon } from 'lucide-vue-next';
     import { useAuthStore } from '@/stores/auth';
 
     const authStore = useAuthStore();
@@ -183,7 +219,7 @@
         },
         productos: {
             type: Array,
-            default: () => [] 
+            default: () => []
         },
         puedeModificar: {
             type: Boolean,
@@ -222,19 +258,16 @@
         });
     });
 
-    const getRowStyle = (detalle) => {
-        if (!detalle.modificado) return {};
-
+    const getModificacionStyle = (detalle) => {
         const sucursal = props.pedido?.sucursales?.find(
             s => s.sucursal_id === detalle.modificado_por_sucursal
         );
 
-        if (!sucursal?.color) return {};
+        if (!sucursal?.color) return 'bg-gray-50';
 
-        const color = sucursal.color;
         return {
-            backgroundColor: `${color}15`,
-            borderLeft: `4px solid ${color}`
+            backgroundColor: `${sucursal.color}15`,
+            borderLeft: `4px solid ${sucursal.color}`
         };
     };
 
@@ -303,5 +336,24 @@
 
         nuevasSelecciones.value[producto.producto_id] = 0;
         mostrarSelectorProductos.value = false;
+    };
+
+    const eliminarProducto = (detalle) => {
+        if (!confirm('¿Esta seguro que desea eliminar este producto?')) return;
+
+        try {
+            const cambio = {
+                detalle_id: detalle.detalle_id,
+                cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
+                cantidad_nueva: 0,
+                eliminado: true,
+                nota: 'Producto eliminado del pedido',
+                sucursal_id: authStore.user.sucursales[0]?.id
+            };
+
+            emit('modificacion', cambio);
+        } catch (error) {
+            console.error('Error al eliminar producto:', error);
+        }
     };
 </script>

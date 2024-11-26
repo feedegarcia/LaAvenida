@@ -1,7 +1,7 @@
 ﻿<template>
     <div>
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-avenida-black">Gestión de Sucursales</h2>
+            <h2 class="text-2xl font-bold text-avenida-black">Gestion de Sucursales</h2>
             <button @click="crearNuevaSucursal"
                     class="px-4 py-2 bg-avenida-green text-white rounded hover:bg-green-600 transition-colors">
                 Nueva Sucursal
@@ -32,7 +32,7 @@
                         <th @click="sortBy('direccion')"
                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
                             <div class="flex items-center space-x-1">
-                                <span>Dirección</span>
+                                <span>Direccion</span>
                                 <span v-if="sortKey === 'direccion'" class="text-avenida-green">
                                     {{ sortOrder === 'asc' ? '^' : 'v' }}
                                 </span>
@@ -77,7 +77,7 @@
                                     'bg-blue-100 text-blue-800': sucursal.tipo === 'FABRICA_VENTA',
                                     'bg-green-100 text-green-800': sucursal.tipo === 'SOLO_VENTA'
                                 }">
-                                {{ sucursal.tipo === 'FABRICA_VENTA' ? 'Fábrica y Venta' : 'Solo Venta' }}
+                                {{ sucursal.tipo === 'FABRICA_VENTA' ? 'Fabrica y Venta' : 'Solo Venta' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">

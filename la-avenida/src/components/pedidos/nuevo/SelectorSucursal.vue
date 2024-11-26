@@ -38,13 +38,13 @@
     onMounted(async () => {
         sucursales.value = authStore.user.sucursales;
 
-        // Si solo hay una sucursal, seleccionarla automáticamente
+        // Si solo hay una sucursal, seleccionarla automaticamente
         if (sucursales.value.length === 1) {
             seleccionarSucursal(sucursales.value[0]);
             return;
         }
 
-        // Si hay más de una, intentar cargar la última seleccionada
+        // Si hay mas de una, intentar cargar la ultima seleccionada
         const ultimaSucursal = localStorage.getItem('ultimaSucursalSeleccionada');
         if (ultimaSucursal) {
             const sucursal = sucursales.value.find(s => s.id === parseInt(ultimaSucursal));

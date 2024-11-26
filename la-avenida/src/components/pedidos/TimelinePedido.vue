@@ -11,7 +11,7 @@
         </div>
 
         <template v-else-if="pedidoData">
-            <!-- Información principal del pedido -->
+            <!-- Informacion principal del pedido -->
             <div class="mb-6 grid grid-cols-2 gap-4">
                 <div class="space-y-2">
                     <div>

@@ -5,7 +5,7 @@ export const usePedidoStore = defineStore('pedido', {
     state: () => ({
         estadosPedido: {
             EN_FABRICA: {
-                label: 'En Fábrica',
+                label: 'En Fabrica',
                 color: 'blue',
                 siguientesEstados: ['PREPARADO', 'PREPARADO_MODIFICADO', 'EN_FABRICA_MODIFICADO'],
                 acciones: [
@@ -67,7 +67,7 @@ export const usePedidoStore = defineStore('pedido', {
                 acciones: [
                     {
                         estado: 'RECIBIDO',
-                        label: 'Confirmar Recepción',
+                        label: 'Confirmar Recepcion',
                         desactivadoSi: 'tieneCambios',
                         permiso: 'SUCURSAL_ORIGEN'
                     },
@@ -91,7 +91,7 @@ export const usePedidoStore = defineStore('pedido', {
                 acciones: [
                     {
                         estado: 'RECIBIDO',
-                        label: 'Confirmar Recepción',
+                        label: 'Confirmar Recepcion',
                         desactivadoSi: 'tieneCambios',
                         permiso: 'SUCURSAL_ORIGEN'
                     },

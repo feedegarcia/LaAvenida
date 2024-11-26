@@ -12,7 +12,7 @@
         </div>
 
         <template v-else>
-            <!-- Header con botones de acción -->
+            <!-- Header con botones de accion -->
             <PedidoHeader :puede-guardar="nuevoPedidoStore.tieneProductosSeleccionados || false"
                           :puede-ver-totales="puedeVerTotales"
                           @guardar-borrador="guardarBorrador"
@@ -24,7 +24,7 @@
             <!-- Selector de sucursal (si corresponde) -->
             <SelectorSucursal v-if="authStore.user.sucursales.length > 1" />
 
-            <!-- Selección de productos -->
+            <!-- Seleccion de productos -->
             <SeleccionProductos />
 
             <!-- Resumen del pedido (totales, cantidades) -->
