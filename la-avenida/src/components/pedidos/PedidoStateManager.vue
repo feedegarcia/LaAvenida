@@ -26,13 +26,18 @@
                     <template v-for="accion in accionesDisponibles"
                               :key="accion.estado">
                         <button @click="cambiarEstado(accion.estado)"
-                                :disabled="!esAccionValida(accion)"
-                                class="px-4 py-2 text-white rounded transition-all"
-                                :class="{
-                                    'bg-green-500 hover:opacity-90': esAccionValida(accion) && accion.estado === 'PREPARADO',
-                                    'bg-yellow-500 hover:opacity-90': esAccionValida(accion) && accion.estado === 'EN_FABRICA_MODIFICADO',
-                                    'bg-gray-300 cursor-not-allowed': !esAccionValida(accion)
-                                }">
+                                v-bind:disabled="!esAccionValida(accion)"
+                                :class="[
+                'px-4 py-2 text-white rounded transition-all',
+                {
+                    'bg-green-500 hover:bg-green-600': accion.estado === 'RECIBIDO',
+                    'bg-orange-500 hover:bg-orange-600': accion.estado === 'RECIBIDO_CON_DIFERENCIAS',
+                    'bg-blue-500 hover:bg-blue-600': accion.estado === 'EN_FABRICA_MODIFICADO',
+                    'bg-green-500 hover:bg-green-600': accion.estado === 'PREPARADO',
+                    'bg-blue-500 hover:bg-blue-600': accion.estado === 'PREPARADO_MODIFICADO',
+                    'bg-gray-300 cursor-not-allowed': !esAccionValida(accion)
+                }
+            ]">
                             {{ accion.label }}
                         </button>
                     </template>
