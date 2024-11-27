@@ -1,4 +1,5 @@
-﻿<template>
+﻿<!-- src/components/pedidos/TimelinePedido.vue -->
+<template>
     <div class="p-4">
         <!-- Loading state -->
         <div v-if="loading" class="text-center py-4">
@@ -11,7 +12,7 @@
         </div>
 
         <template v-else-if="pedidoData">
-            <!-- Informacion principal del pedido -->
+            <!-- Información principal del pedido -->
             <div class="mb-6 grid grid-cols-2 gap-4">
                 <div class="space-y-2">
                     <div>
@@ -90,13 +91,13 @@
 </template>
 
 <script setup>
-    import { ref, computed, watch, onMounted } from 'vue';
+    import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'; 
     import { useAuthStore } from '@/stores/auth';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
     import PedidoStateManager from './PedidoStateManager.vue';
     import { formatearFecha, formatearFechaCompleta } from '@/utils/dateUtils';
     import axios from '@/utils/axios-config';
-
+    let intervalId = null;  
     const props = defineProps({
         pedido: {
             type: Object,
@@ -117,6 +118,57 @@
     const loading = ref(false);
     const error = ref('');
 
+    // Computed Properties
+    const puedeVerTotales = computed(() => {
+        return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
+    });
+
+    const totalPedido = computed(() => {
+        if (!pedidoData.value?.detalles) return 0;
+        return pedidoData.value.detalles.reduce((total, detalle) => {
+            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
+            return total + (detalle.precio_unitario * cantidad);
+        }, 0);
+    });
+
+    // Methods
+    const formatoMoneda = (valor) => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const cargarPedido = async () => {
+        try {
+            loading.value = true;
+            error.value = '';
+
+            if (props.pedido) {
+                pedidoData.value = props.pedido;
+                await cargarHistorial(props.pedido.pedido_id);
+                return;
+            }
+
+            if (props.id) {
+                const response = await axios.get(`/api/pedidos/${props.id}`);
+                pedidoData.value = {
+                    ...response.data,
+                    estado: response.data.estado
+                };
+
+                await cargarHistorial(props.id);
+            }
+        } catch (err) {
+            if (err.name !== 'CanceledError') { // Ignorar errores de cancelación
+                console.error('Error cargando pedido:', err);
+                error.value = err.message || 'Error al cargar el pedido';
+            }
+        } finally {
+            loading.value = false;
+        }
+    };
+
     const cargarHistorial = async (pedidoId) => {
         try {
             const response = await axios.get(`/api/pedidos/${pedidoId}/historial`);
@@ -131,57 +183,42 @@
         }
     };
 
-    const cargarPedido = async () => {
-        try {
-            loading.value = true;
-            error.value = '';
-            console.log('Iniciando carga de pedido');
-
-            if (props.pedido) {
-                console.log('Cargando desde props:', props.pedido);
-                console.log('Detalles desde props:', props.pedido.detalles);
-                pedidoData.value = props.pedido;
-                await cargarHistorial(props.pedido.pedido_id);
-                return;
-            }
-
-            if (props.id) {
-                const response = await axios.get(`/api/pedidos/${props.id}`);
-                console.log('Respuesta completa API:', response.data);
-                console.log('Detalles en API:', response.data.detalles);
-                console.log('Primer detalle:', response.data.detalles?.[0]);
-                pedidoData.value = response.data;
-                await cargarHistorial(props.id);
-            }
-        } catch (err) {
-            console.error('Error detallado:', err);
-            error.value = 'Error al cargar el pedido';
-        } finally {
-            loading.value = false;
-        }
-    };
-
     const handleEstadoActualizado = async (resultado) => {
         await cargarPedido();
         emit('estado-actualizado', resultado);
     };
 
-    // Watch para debug
-    watch(() => pedidoData.value, (newValue) => {
-        if (newValue) {
-            console.log('PedidoData actualizado:', {
-                pedido_id: newValue.pedido_id,
-                estado: newValue.estado,
-                detalles: newValue.detalles?.map(d => ({
-                    detalle_id: d.detalle_id,
-                    producto_nombre: d.producto_nombre,
-                    cantidad_solicitada: d.cantidad_solicitada
-                }))
-            });
+    // Watchers
+    watch(() => props.pedido, (newPedido) => {
+        if (newPedido) {
+            pedidoData.value = newPedido;
+            cargarHistorial(newPedido.pedido_id);
         }
-    }, { deep: true });
+    });
 
+    watch(() => props.id, (newId) => {
+        if (newId) {
+            cargarPedido();
+        }
+    });
+
+    // Lifecycle Hooks
     onMounted(() => {
         cargarPedido();
+
+        // Configurar intervalo de actualización automática
+        intervalId = setInterval(() => {
+            if (pedidoData.value?.pedido_id) {
+                cargarPedido();
+            }
+        }, 60000);
+    });
+
+    // Cleanup hook
+    onBeforeUnmount(() => {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
     });
 </script>

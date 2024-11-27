@@ -42,6 +42,99 @@ const getPedidos = async (req, res) => {
     }
 };
 
+// En la función getProductosDisponibles del controlador
+const getProductosDisponibles = async (req, res) => {
+    try {
+        const [pedido] = await pool.query(
+            'SELECT sucursal_destino FROM pedido WHERE pedido_id = ?',
+            [req.params.id]
+        );
+
+        if (!pedido.length) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const [productos] = await pool.query(`
+            SELECT DISTINCT
+                p.producto_id,
+                p.nombre,
+                p.codigo,
+                p.precio_mayorista,
+                op.tipo as tipo_origen,
+                COALESCE(stk.cantidad, 0) as stock,
+                cp.nombre as categoria_nombre,
+                sp.nombre as subcategoria_nombre
+            FROM PRODUCTO p
+            JOIN origen_producto op ON p.origen_id = op.origen_id
+            LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
+            JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
+            JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
+            WHERE p.activo = TRUE 
+            AND op.sucursal_fabricante_id = ? -- Solo productos de la sucursal destino
+            AND p.producto_id NOT IN (
+                SELECT dp.producto_id 
+                FROM detalle_pedido dp 
+                WHERE dp.pedido_id = ?
+            )
+            ORDER BY cp.nombre, sp.nombre, p.nombre
+        `, [pedido[0].sucursal_destino, req.params.id]);
+
+        res.json(productos);
+    } catch (error) {
+        console.error('Error al obtener productos:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const eliminarProductoDePedido = async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        const { id: pedidoId, detalleId } = req.params;
+        console.log('Intentando eliminar:', { pedidoId, detalleId });
+
+        // 1. Verificar pedido y estado
+        const [pedido] = await connection.query(
+            'SELECT * FROM pedido WHERE pedido_id = ?',
+            [pedidoId]
+        );
+
+        if (!pedido.length) {
+            throw new Error('Pedido no encontrado');
+        }
+
+        if (['FINALIZADO', 'CANCELADO'].includes(pedido[0].estado)) {
+            throw new Error('No se puede modificar un pedido finalizado o cancelado');
+        }
+
+        // 2. Primero eliminar referencias en detalle_cambio
+        await connection.query(
+            'DELETE FROM detalle_cambio WHERE detalle_id = ?',
+            [detalleId]
+        );
+
+        // 3. Luego eliminar el detalle
+        const [result] = await connection.query(
+            'DELETE FROM detalle_pedido WHERE pedido_id = ? AND detalle_id = ?',
+            [pedidoId, detalleId]
+        );
+
+        await connection.commit();
+        res.json({
+            success: true,
+            message: 'Producto eliminado exitosamente'
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error en eliminación:', error);
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
+    } finally {
+        connection.release();
+    }
+};
+
 const getPedidoById = async (req, res) => {
     const connection = await pool.getConnection();
     try {
@@ -287,53 +380,34 @@ const agregarProductosAPedido = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { pedido_id } = req.params;
+        const { id } = req.params;
         const { productos, sucursal_id } = req.body;
 
-        // Verificar que el pedido existe y esta en estado modificable
+        console.log('Datos recibidos:', { id, productos, sucursal_id });
+
+        // 1. Verificar que el pedido existe
         const [pedido] = await connection.query(
             'SELECT * FROM pedido WHERE pedido_id = ?',
-            [pedido_id]
+            [id]
         );
 
         if (!pedido.length) {
             throw new Error('Pedido no encontrado');
         }
 
-        const estadosModificables = ['EN_FABRICA', 'PREPARADO'];
-        if (!estadosModificables.includes(pedido[0].estado)) {
-            throw new Error('El pedido no esta en un estado que permita modificaciones');
+        // 2. Verificar estado del pedido
+        if (['FINALIZADO', 'CANCELADO'].includes(pedido[0].estado)) {
+            throw new Error('No se puede modificar un pedido finalizado o cancelado');
         }
 
-        // Verificar que los productos son de la fabrica correcta
-        for (const producto of productos) {
-            const [productoInfo] = await connection.query(
-                `SELECT sucursal_fabricante_id FROM producto p
-                 JOIN origen_producto op ON p.origen_id = op.origen_id
-                 WHERE p.producto_id = ?`,
-                [producto.producto_id]
-            );
-
-            if (!productoInfo.length || productoInfo[0].sucursal_fabricante_id !== pedido[0].sucursal_destino) {
-                throw new Error('Uno o mas productos no pertenecen a la fabrica correcta');
-            }
-        }
-
-        // Insertar nuevos detalles
+        // 3. Insertar cada producto
         for (const producto of productos) {
             await connection.query(
                 `INSERT INTO detalle_pedido (
                     pedido_id, producto_id, cantidad_solicitada,
-                    precio_unitario, estado, modificado,
-                    modificado_por_sucursal, fecha_modificacion
-                ) VALUES (?, ?, ?, ?, 'MODIFICADO', true, ?, NOW())`,
-                [
-                    pedido_id,
-                    producto.producto_id,
-                    producto.cantidad,
-                    producto.precio_unitario,
-                    sucursal_id
-                ]
+                    precio_unitario, modificado, modificado_por_sucursal
+                ) VALUES (?, ?, ?, ?, true, ?)`,
+                [id, producto.producto_id, producto.cantidad, producto.precio_unitario, sucursal_id]
             );
         }
 
@@ -341,6 +415,7 @@ const agregarProductosAPedido = async (req, res) => {
         res.json({ message: 'Productos agregados exitosamente' });
     } catch (error) {
         await connection.rollback();
+        console.error('Error al agregar productos:', error);
         res.status(400).json({ error: error.message });
     } finally {
         connection.release();
@@ -353,5 +428,7 @@ module.exports = {
     createPedido,
     updatePedidoEstado,
     getPedidoHistorial,
-    agregarProductosAPedido
+    agregarProductosAPedido,
+    getProductosDisponibles,
+    eliminarProductoDePedido
 };

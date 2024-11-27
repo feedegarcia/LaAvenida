@@ -158,7 +158,7 @@
                                     </div>
                                     <div v-else
                                          v-for="producto in productosFiltrados"
-                                         :key="producto.producto_id"
+                                         :key="producto.uniqueKey"
                                          class="p-4 border-b hover:bg-gray-50 flex items-center justify-between">
                                         <div>
                                             <p class="font-medium">{{ producto.nombre }}</p>
@@ -197,16 +197,40 @@
     </div>
 </template>
 <script setup>
-    import { ref, computed } from 'vue';
+    import { ref, computed, watch } from 'vue';
     import { Dialog, DialogPanel, DialogOverlay, TransitionChild, TransitionRoot } from '@headlessui/vue';
     import { X, X as XIcon } from 'lucide-vue-next';
     import { useAuthStore } from '@/stores/auth';
-
+    import axios from '@/utils/axios-config';
+    
     const authStore = useAuthStore();
     const cantidadesModificadas = ref({});
     const mostrarSelectorProductos = ref(false);
     const nuevasSelecciones = ref({});
     const busquedaProducto = ref('');
+    const productosDisponibles = ref([]);
+
+    const cargarProductosDisponibles = async () => {
+        try {
+            const response = await axios.get(
+                `/api/pedidos/${props.pedido.pedido_id}/productos/disponibles`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
+            // Asegurarnos que los productos son únicos y tienen la info necesaria
+            productosDisponibles.value = response.data.map(p => ({
+                ...p,
+                uniqueKey: `${p.producto_id}-${Date.now()}` // Asegurar keys únicas
+            }));
+        } catch (error) {
+            console.error('Error cargando productos:', error);
+            productosDisponibles.value = [];
+        }
+    };
+
 
     const props = defineProps({
         pedido: {
@@ -231,7 +255,7 @@
         }
     });
 
-    const emit = defineEmits(['modificacion', 'agregar-producto']);
+    const emit = defineEmits(['modificacion', 'agregar-producto', 'estado-actualizado']);
 
     const totalPedido = computed(() => {
         return props.detalles.reduce((total, detalle) => {
@@ -242,20 +266,23 @@
 
     const puedeModificarCantidades = computed(() => {
         return props.puedeModificar &&
-            props.pedido.estado !== 'FINALIZADO' &&
-            props.pedido.estado !== 'CANCELADO';
+            !['FINALIZADO', 'CANCELADO'].includes(props.pedido.estado);
     });
 
     const productosFiltrados = computed(() => {
-        if (!props.productos) return [];
+        if (!productosDisponibles.value) return [];
         const busqueda = busquedaProducto.value.toLowerCase().trim();
 
-        return props.productos.filter(producto => {
-            const nombreCoincide = producto.nombre.toLowerCase().includes(busqueda);
-            const codigoCoincide = producto.codigo?.toLowerCase().includes(busqueda);
-            const noEstaEnPedido = !props.detalles.some(d => d.producto_id === producto.producto_id);
-            return (nombreCoincide || codigoCoincide) && noEstaEnPedido;
-        });
+        return productosDisponibles.value
+            .filter(producto => {
+                const nombreCoincide = producto.nombre.toLowerCase().includes(busqueda);
+                const codigoCoincide = producto.codigo?.toLowerCase().includes(busqueda);
+                return nombreCoincide || codigoCoincide;
+            })
+            .map(producto => ({
+                ...producto,
+                uniqueKey: `${producto.producto_id}-${producto.codigo}-${Date.now()}`
+            }));
     });
 
     const getModificacionStyle = (detalle) => {
@@ -327,6 +354,13 @@
         const cantidad = nuevasSelecciones.value[producto.producto_id];
         if (!cantidad || cantidad <= 0) return;
 
+        console.log('Enviando producto:', { // Debug
+            producto_id: producto.producto_id,
+            cantidad: cantidad,
+            precio_unitario: producto.precio_mayorista,
+            sucursal_id: authStore.user.sucursales[0]?.id
+        });
+
         emit('agregar-producto', {
             producto_id: producto.producto_id,
             cantidad: cantidad,
@@ -338,22 +372,29 @@
         mostrarSelectorProductos.value = false;
     };
 
-    const eliminarProducto = (detalle) => {
-        if (!confirm('¿Esta seguro que desea eliminar este producto?')) return;
-
-        try {
-            const cambio = {
-                detalle_id: detalle.detalle_id,
-                cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
-                cantidad_nueva: 0,
-                eliminado: true,
-                nota: 'Producto eliminado del pedido',
-                sucursal_id: authStore.user.sucursales[0]?.id
-            };
-
-            emit('modificacion', cambio);
-        } catch (error) {
-            console.error('Error al eliminar producto:', error);
+    // En DetalleProductos.vue, en la sección de methods
+    const eliminarProducto = async (detalle) => {
+        if (confirm('¿Está seguro que desea eliminar este producto?')) {
+            try {
+                const response = await axios.delete(
+                    `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }
+                );
+                // Emitir evento para actualizar
+                emit('estado-actualizado'); // Asegurarte que este evento está declarado en defineEmits
+            } catch (error) {
+                console.error('Error al eliminar producto:', error);
+            }
         }
     };
+
+    watch(mostrarSelectorProductos, (nuevoValor) => {
+        if (nuevoValor) {
+            cargarProductosDisponibles();
+        }
+    });
 </script>

@@ -8,41 +8,28 @@
                         <h3 class="text-lg font-semibold">
                             Estado actual: {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}
                         </h3>
-                        <span :class="[
-                            'px-2 py-1 rounded-full text-sm',
-                            `bg-${pedidoStore.obtenerColorEstado(pedido.estado)}-100`,
-                            `text-${pedidoStore.obtenerColorEstado(pedido.estado)}-800`
-                        ]">
+                        <span :class="getEstadoClass(pedido.estado)">
                             {{ pedidoStore.obtenerEtiquetaEstado(pedido.estado) }}
                         </span>
                     </div>
                     <p class="text-sm text-gray-600">
-                        ultima actualizacion: {{ formatearFecha(pedido.updated_at) }}
+                        Última actualización: {{ formatearFecha(pedido.updated_at) }}
                     </p>
                 </div>
 
-                <!-- Botones de accion -->
+                <!-- Botones de acción -->
                 <div class="flex gap-2">
                     <template v-for="accion in accionesDisponibles"
                               :key="accion.estado">
                         <button @click="cambiarEstado(accion.estado)"
-                                v-bind:disabled="!esAccionValida(accion)"
-                                :class="[
-                'px-4 py-2 text-white rounded transition-all',
-                {
-                    'bg-green-500 hover:bg-green-600': accion.estado === 'RECIBIDO',
-                    'bg-orange-500 hover:bg-orange-600': accion.estado === 'RECIBIDO_CON_DIFERENCIAS',
-                    'bg-blue-500 hover:bg-blue-600': accion.estado === 'EN_FABRICA_MODIFICADO',
-                    'bg-green-500 hover:bg-green-600': accion.estado === 'PREPARADO',
-                    'bg-blue-500 hover:bg-blue-600': accion.estado === 'PREPARADO_MODIFICADO',
-                    'bg-gray-300 cursor-not-allowed': !esAccionValida(accion)
-                }
-            ]">
+                                :disabled="!esAccionValida(accion)"
+                                class="px-4 py-2 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                :class="getBotonClass(accion)">
                             {{ accion.label }}
                         </button>
                     </template>
 
-                    <!-- Boton de cancelar -->
+                    <!-- Botón de cancelar (único) -->
                     <button v-if="puedeCancelarPedido"
                             @click="confirmarCancelacion"
                             class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700">
@@ -54,34 +41,34 @@
 
         <!-- Detalles del pedido -->
         <DetalleProductos :pedido="pedido"
-                          :detalles="pedido.detalles || []"
+                          :detalles="pedido.detalles"
                           :puede-modificar="puedeModificarPedido"
                           :puede-ver-totales="puedeVerTotales"
-                          :productos="productos"
+                          :color-sucursal="obtenerColorSucursal"
                           @modificacion="handleModificacion"
                           @agregar-producto="handleAgregarProducto" />
 
-        <!-- Modal de confirmacion de cancelacion -->
+        <!-- Modal de confirmación de cancelación -->
         <Dialog v-if="mostrarConfirmacionCancelacion"
                 @close="mostrarConfirmacionCancelacion = false"
                 class="relative z-50">
-            <div class="fixed inset-0 bg-black/30" />
+            <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
             <div class="fixed inset-0 flex items-center justify-center p-4">
-                <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6">
+                <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 text-left shadow-xl transition-all">
                     <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900 mb-4">
-                        Confirmar Cancelacion
+                        Confirmar Cancelación
                     </DialogTitle>
-                    <p class="text-sm text-gray-500">
-                        ¿Esta seguro que desea cancelar este pedido?
+                    <p class="text-gray-600 mb-4">
+                        ¿Está seguro que desea cancelar este pedido?
                     </p>
-                    <div class="mt-4 flex justify-end space-x-3">
+                    <div class="flex justify-end gap-2">
                         <button @click="mostrarConfirmacionCancelacion = false"
                                 class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded">
                             No, mantener
                         </button>
                         <button @click="cancelarPedido"
                                 class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-                            Si, cancelar
+                            Sí, cancelar
                         </button>
                     </div>
                 </DialogPanel>
@@ -91,13 +78,12 @@
 </template>
 
 <script setup>
-    import { ref, computed, onMounted } from 'vue';
+    import { ref, computed } from 'vue';
     import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue';
     import DetalleProductos from './DetalleProductos.vue';
     import { formatearFecha } from '@/utils/dateUtils';
     import { useAuthStore } from '@/stores/auth';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
-    import axios from '@/utils/axios-config';
 
     const props = defineProps({
         pedido: {
@@ -107,11 +93,12 @@
     });
 
     const emit = defineEmits(['estado-actualizado']);
+
     const authStore = useAuthStore();
     const pedidoStore = usePedidoStore();
     const mostrarConfirmacionCancelacion = ref(false);
-    const productos = ref([]);
 
+    // Computed properties
     const puedeModificarPedido = computed(() => {
         return pedidoStore.puedeModificarPedido(props.pedido, authStore.user);
     });
@@ -125,31 +112,61 @@
     });
 
     const accionesDisponibles = computed(() => {
-        const estadoConfig = pedidoStore.estadosPedido[props.pedido.estado];
-        if (!estadoConfig?.acciones) return [];
-
-        return estadoConfig.acciones.filter(accion => {
-            if (accion.permiso === 'SUCURSAL_ORIGEN') {
-                return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_origen);
-            }
-            if (accion.permiso === 'SUCURSAL_DESTINO') {
-                return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_destino);
-            }
-            if (accion.permiso === 'ADMIN') {
-                return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
-            }
-            return false;
-        });
+        return pedidoStore.obtenerAccionesPermitidas(
+            props.pedido.estado,
+            authStore.user,
+            props.pedido
+        );
     });
 
+    // Methods
+    const getEstadoClass = (estado) => {
+        const color = pedidoStore.obtenerColorEstado(estado);
+        return {
+            'px-2 py-1 rounded-full text-sm': true,
+            [`bg-${color}-100`]: true,
+            [`text-${color}-800`]: true
+        };
+    };
+
+    const getBotonClass = (accion) => {
+        const classes = {
+            'bg-green-500 hover:bg-green-600': ['RECIBIDO', 'PREPARADO', 'FINALIZADO'].includes(accion.estado),
+            'bg-yellow-500 hover:bg-yellow-600': ['RECIBIDO_CON_DIFERENCIAS'].includes(accion.estado),
+            'bg-blue-500 hover:bg-blue-600': ['EN_FABRICA_MODIFICADO', 'PREPARADO_MODIFICADO'].includes(accion.estado),
+            'bg-gray-400': !esAccionValida(accion)
+        };
+
+        // Si la acción está desactivada, mantener el color pero con opacidad
+        if (!esAccionValida(accion)) {
+            return 'bg-gray-400 cursor-not-allowed';
+        }
+
+        // Encontrar la clase de color que aplica
+        return Object.entries(classes).find(([_, condition]) => condition)?.[0] || 'bg-gray-500 hover:bg-gray-600';
+    };
+
     const esAccionValida = (accion) => {
-        if (accion.desactivadoSi === 'tieneCambios') {
-            return !props.pedido.detalles?.some(d => d.modificado);
-        }
+        const tieneCambios = props.pedido.detalles?.some(d => d.modificado);
+
         if (accion.activadoSi === 'tieneCambios') {
-            return props.pedido.detalles?.some(d => d.modificado);
+            return tieneCambios;
         }
+
+        if (accion.desactivadoSi === 'tieneCambios') {
+            return !tieneCambios;
+        }
+
         return true;
+    };
+
+    const obtenerColorSucursal = (detalle) => {
+        if (!detalle.modificado) return null;
+
+        const sucursal = props.pedido.sucursales?.find(
+            s => s.sucursal_id === detalle.modificado_por_sucursal
+        );
+        return sucursal?.color || null;
     };
 
     const cambiarEstado = async (nuevoEstado) => {
@@ -164,46 +181,14 @@
         }
     };
 
-    const cargarProductos = async () => {
-        try {
-            const response = await axios.get('/api/productos/pedido', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
-            let productosArray = [];
-
-            if (response.data.fabricas) {
-                Object.values(response.data.fabricas).forEach(fabrica => {
-                    Object.values(fabrica.subcategorias || {}).forEach(subcategoria => {
-                        productosArray = productosArray.concat(subcategoria.productos || []);
-                    });
-                });
-            }
-
-            if (response.data.sinTac?.length) {
-                productosArray = productosArray.concat(response.data.sinTac);
-            }
-
-            if (response.data.varios?.length) {
-                productosArray = productosArray.concat(response.data.varios);
-            }
-
-            productos.value = productosArray;
-        } catch (error) {
-            console.error('Error cargando productos:', error);
-            productos.value = [];
-        }
-    };
-
     const handleModificacion = async (cambios) => {
         try {
             const resultado = await pedidoStore.cambiarEstadoPedido(
                 props.pedido.pedido_id,
                 props.pedido.estado,
                 {
-                    detalles: [cambios]
+                    detalles: [cambios],
+                    sucursal_id: authStore.user.sucursales[0]?.id
                 }
             );
             emit('estado-actualizado', resultado);
@@ -214,18 +199,12 @@
 
     const handleAgregarProducto = async (producto) => {
         try {
-            const response = await axios.post(`/api/pedidos/${props.pedido.pedido_id}/productos`, {
-                productos: [{
-                    producto_id: producto.producto_id,
-                    cantidad: producto.cantidad,
-                    precio_unitario: producto.precio_mayorista || producto.precio_unitario
-                }],
-                sucursal_id: authStore.user.sucursales[0]?.id
-            });
-            emit('estado-actualizado', response.data);
+            console.log('Datos del producto a agregar:', producto); // Debug
+            await pedidoStore.agregarProductoAPedido(props.pedido.pedido_id, producto);
+            // Recargar el pedido después de agregar
+            await cargarPedido();
         } catch (error) {
-            console.error('Error detallado:', error.response?.data);
-            // Aqui podriamos agregar un toast o notificacion al usuario
+            console.error('Error al agregar producto:', error);
         }
     };
 
@@ -242,8 +221,4 @@
             console.error('Error al cancelar pedido:', error);
         }
     };
-
-    onMounted(() => {
-        cargarProductos();
-    });
 </script>

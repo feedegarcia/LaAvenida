@@ -8,5 +8,7 @@ router.post('/', pedidosController.createPedido);
 router.patch('/:id/estado', pedidosController.updatePedidoEstado);
 router.get('/:id/historial', pedidosController.getPedidoHistorial);
 router.post('/:id/productos', pedidosController.agregarProductosAPedido);
+router.get('/:id/productos/disponibles', pedidosController.getProductosDisponibles); // Nueva ruta
+router.delete('/:id/productos/:detalleId', pedidosController.eliminarProductoDePedido); // Nueva ruta
 
 module.exports = router;

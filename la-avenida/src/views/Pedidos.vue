@@ -99,7 +99,10 @@
             const response = await axios.get(`/api/pedidos/${pedidoId}`);
             pedidoSeleccionado.value = response.data;
         } catch (error) {
-            console.error('Error al cargar pedido:', error);
+            if (error.name !== 'CanceledError') {
+                console.error('Error al cargar pedido:', error);
+
+            }
         }
     };
 
