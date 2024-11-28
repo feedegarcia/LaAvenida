@@ -110,7 +110,6 @@
     });
 
     const emit = defineEmits(['estado-actualizado']);
-
     const authStore = useAuthStore();
     const pedidoStore = usePedidoStore();
     const pedidoData = ref(null);
@@ -118,6 +117,11 @@
     const loading = ref(false);
     const error = ref('');
 
+    const actualizarPedido = async () => {
+        console.log('Actualizando pedido...');
+        await cargarPedido();
+
+    };
     // Computed Properties
     const puedeVerTotales = computed(() => {
         return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
@@ -142,28 +146,13 @@
     const cargarPedido = async () => {
         try {
             loading.value = true;
-            error.value = '';
-
-            if (props.pedido) {
-                pedidoData.value = props.pedido;
-                await cargarHistorial(props.pedido.pedido_id);
-                return;
-            }
-
             if (props.id) {
                 const response = await axios.get(`/api/pedidos/${props.id}`);
-                pedidoData.value = {
-                    ...response.data,
-                    estado: response.data.estado
-                };
-
+                pedidoData.value = response.data;
                 await cargarHistorial(props.id);
             }
         } catch (err) {
-            if (err.name !== 'CanceledError') { // Ignorar errores de cancelación
-                console.error('Error cargando pedido:', err);
-                error.value = err.message || 'Error al cargar el pedido';
-            }
+            console.error('Error cargando pedido:', err);
         } finally {
             loading.value = false;
         }
@@ -183,9 +172,8 @@
         }
     };
 
-    const handleEstadoActualizado = async (resultado) => {
+    const handleEstadoActualizado = async () => {
         await cargarPedido();
-        emit('estado-actualizado', resultado);
     };
 
     // Watchers

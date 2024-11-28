@@ -1,7 +1,25 @@
 const pool = require('../config/database');
 const jwt = require('jsonwebtoken');
+
 const getPedidos = async (req, res) => {
     try {
+        // Obtener las sucursales del usuario del token
+        const usuarioId = req.user.id;
+
+        // Primero obtener las sucursales del usuario
+        const [userSucursales] = await pool.query(`
+            SELECT sucursal_id 
+            FROM usuario_sucursal 
+            WHERE usuario_id = ? AND activo = 1
+        `, [usuarioId]);
+
+        const sucursalIds = userSucursales.map(s => s.sucursal_id);
+
+        if (sucursalIds.length === 0) {
+            return res.json([]);
+        }
+
+        // Consulta modificada para filtrar por sucursales del usuario
         const [pedidos] = await pool.query(`
             SELECT 
                 p.pedido_id,
@@ -29,8 +47,9 @@ const getPedidos = async (req, res) => {
             FROM pedido p
             JOIN sucursal so ON p.sucursal_origen = so.sucursal_id
             JOIN sucursal sd ON p.sucursal_destino = sd.sucursal_id
+            WHERE p.sucursal_origen IN (?) OR p.sucursal_destino IN (?)
             ORDER BY p.fecha_pedido DESC
-        `);
+        `, [sucursalIds, sucursalIds]);
 
         res.json(pedidos);
     } catch (error) {
@@ -42,7 +61,6 @@ const getPedidos = async (req, res) => {
     }
 };
 
-// En la función getProductosDisponibles del controlador
 const getProductosDisponibles = async (req, res) => {
     try {
         const [pedido] = await pool.query(
@@ -61,21 +79,27 @@ const getProductosDisponibles = async (req, res) => {
                 p.codigo,
                 p.precio_mayorista,
                 op.tipo as tipo_origen,
-                COALESCE(stk.cantidad, 0) as stock,
                 cp.nombre as categoria_nombre,
                 sp.nombre as subcategoria_nombre
             FROM PRODUCTO p
             JOIN origen_producto op ON p.origen_id = op.origen_id
-            LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
             JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
             JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
             WHERE p.activo = TRUE 
-            AND op.sucursal_fabricante_id = ? -- Solo productos de la sucursal destino
+            AND op.sucursal_fabricante_id = ?
             AND p.producto_id NOT IN (
                 SELECT dp.producto_id 
                 FROM detalle_pedido dp 
                 WHERE dp.pedido_id = ?
             )
+            GROUP BY 
+                p.producto_id, 
+                p.nombre, 
+                p.codigo, 
+                p.precio_mayorista, 
+                op.tipo,
+                cp.nombre, 
+                sp.nombre
             ORDER BY cp.nombre, sp.nombre, p.nombre
         `, [pedido[0].sucursal_destino, req.params.id]);
 
@@ -89,39 +113,59 @@ const getProductosDisponibles = async (req, res) => {
 const eliminarProductoDePedido = async (req, res) => {
     const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const { id: pedidoId, detalleId } = req.params;
-        console.log('Intentando eliminar:', { pedidoId, detalleId });
+        const sucursalId = req.user.sucursal_id;
 
-        // 1. Verificar pedido y estado
-        const [pedido] = await connection.query(
-            'SELECT * FROM pedido WHERE pedido_id = ?',
+        // Obtener información del pedido
+        const [[pedido]] = await connection.query(
+            'SELECT estado, sucursal_origen, sucursal_destino FROM pedido WHERE pedido_id = ?',
             [pedidoId]
         );
 
-        if (!pedido.length) {
+        if (!pedido) {
             throw new Error('Pedido no encontrado');
         }
 
-        if (['FINALIZADO', 'CANCELADO'].includes(pedido[0].estado)) {
-            throw new Error('No se puede modificar un pedido finalizado o cancelado');
-        }
-
-        // 2. Primero eliminar referencias en detalle_cambio
+        // 1. Eliminar referencias en detalle_cambio
         await connection.query(
             'DELETE FROM detalle_cambio WHERE detalle_id = ?',
             [detalleId]
         );
 
-        // 3. Luego eliminar el detalle
-        const [result] = await connection.query(
+        // 2. Eliminar el detalle
+        await connection.query(
             'DELETE FROM detalle_pedido WHERE pedido_id = ? AND detalle_id = ?',
             [pedidoId, detalleId]
         );
 
+        let nuevoEstado = pedido.estado;
+
+        // Si la sucursal origen elimina y está en EN_FABRICA, cambiar a EN_FABRICA_MODIFICADO
+        if (sucursalId === pedido.sucursal_origen && pedido.estado === 'EN_FABRICA') {
+            nuevoEstado = 'EN_FABRICA_MODIFICADO';
+
+            // Actualizar estado del pedido
+            await connection.query(
+                'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+                [nuevoEstado, pedidoId]
+            );
+
+            // Registrar en historial
+            await connection.query(`
+                INSERT INTO historial_pedido 
+                (pedido_id, estado_anterior, estado_nuevo, usuario_id)
+                VALUES (?, ?, ?, ?)`,
+                [pedidoId, pedido.estado, nuevoEstado, req.user.id]
+            );
+        }
+
         await connection.commit();
         res.json({
             success: true,
-            message: 'Producto eliminado exitosamente'
+            message: 'Producto eliminado exitosamente',
+            nuevoEstado,
+            cambioEstado: nuevoEstado !== pedido.estado
         });
     } catch (error) {
         await connection.rollback();
@@ -168,14 +212,19 @@ const getPedidoById = async (req, res) => {
 
         // Obtener detalles del pedido
         const [detalles] = await connection.query(`
-            SELECT 
-                dp.*,
-                p.nombre as producto_nombre,
-                p.codigo as producto_codigo
-            FROM detalle_pedido dp
-            JOIN producto p ON dp.producto_id = p.producto_id
-            WHERE dp.pedido_id = ?
-        `, [req.params.id]);
+        SELECT 
+            dp.*,
+            p.nombre as producto_nombre,
+            p.codigo as producto_codigo,
+            cp.nombre as categoria_nombre,
+            sp.nombre as subcategoria_nombre
+        FROM detalle_pedido dp
+        JOIN producto p ON dp.producto_id = p.producto_id
+        JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
+        JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
+        WHERE dp.pedido_id = ?
+        ORDER BY cp.nombre, sp.nombre, p.nombre
+    `, [req.params.id]);
 
         pedido[0].detalles = detalles;
 
@@ -205,18 +254,14 @@ const createPedido = async (req, res) => {
             tipo = 'PEDIDO_FABRICA',
             detalles,
             notas,
-            estado = 'EN_FABRICA' // Permitir estado como parametro
+            estado = 'EN_FABRICA'
         } = req.body;
 
-        // Validar que el usuario tiene acceso a la sucursal
-        const token = req.headers.authorization.split(' ')[1];
-        const decodedToken = jwt.verify(token, 'secret_key');
-
-        // Verificar que el usuario tiene acceso a la sucursal origen
+        // Verificar que el usuario tiene acceso a la sucursal
         const [userSucursal] = await connection.query(`
             SELECT 1 FROM usuario_sucursal 
             WHERE usuario_id = ? AND sucursal_id = ? AND activo = 1`,
-            [decodedToken.id, sucursal_origen]
+            [req.user.id, sucursal_origen]
         );
 
         if (!userSucursal.length) {
@@ -240,14 +285,26 @@ const createPedido = async (req, res) => {
 
         if (detalles && detalles.length > 0) {
             for (const detalle of detalles) {
+                // Insertar en detalle_pedido
                 await connection.query(
                     `INSERT INTO detalle_pedido (
                         pedido_id,
                         producto_id,
                         cantidad_solicitada,
-                        precio_unitario
-                    ) VALUES (?, ?, ?, ?)`,
+                        precio_unitario,
+                        estado
+                    ) VALUES (?, ?, ?, ?, 'PENDIENTE')`,
                     [pedidoId, detalle.producto_id, detalle.cantidad, detalle.precio_unitario]
+                );
+
+                // Guardar cantidad original
+                await connection.query(
+                    `INSERT INTO detalle_pedido_original (
+                        pedido_id,
+                        producto_id,
+                        cantidad_original
+                    ) VALUES (?, ?, ?)`,
+                    [pedidoId, detalle.producto_id, detalle.cantidad]
                 );
             }
         }
@@ -269,63 +326,400 @@ const createPedido = async (req, res) => {
     }
 };
 
+
+// Función modificada para manejar cambios de estado
 const updatePedidoEstado = async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { estado, detalles, notas } = req.body;
-        const token = req.headers.authorization.split(' ')[1];
-        const decodedToken = jwt.verify(token, 'secret_key');
+        const { estado, detalles, tieneCambios } = req.body;
+        const { id: pedidoId } = req.params;
+        const usuarioId = req.user.id;
+        const sucursalId = req.user.sucursal_id;
 
+        // Obtener estado actual del pedido
         const [pedidoActual] = await connection.query(
-            'SELECT estado FROM pedido WHERE pedido_id = ?',
-            [req.params.id]
+            'SELECT estado, sucursal_origen, sucursal_destino FROM pedido WHERE pedido_id = ?',
+            [pedidoId]
         );
 
         if (!pedidoActual.length) {
             throw new Error('Pedido no encontrado');
         }
 
-        if (detalles?.length > 0) {
-            const [historial] = await connection.query(
-                `INSERT INTO historial_pedido (
-                    pedido_id, estado_anterior, estado_nuevo, 
-                    usuario_id, notas, fecha
-                ) VALUES (?, ?, ?, ?, ?, NOW())`,
-                [req.params.id, pedidoActual[0].estado, estado, decodedToken.id, notas]
-            );
+        // Validar transición de estado
+        const transicionValida = esTransicionValida(
+            pedidoActual[0].estado,
+            estado,
+            sucursalId,
+            pedidoActual[0]
+        );
 
+        if (!transicionValida) {
+            throw new Error('Transición de estado no permitida');
+        }
+
+        // Si es PREPARADO o PREPARADO_MODIFICADO, actualizar cantidades confirmadas
+        if (['PREPARADO', 'PREPARADO_MODIFICADO'].includes(estado)) {
+            await connection.query(`
+                UPDATE detalle_pedido 
+                SET cantidad_confirmada = cantidad_solicitada 
+                WHERE pedido_id = ? AND cantidad_confirmada IS NULL
+            `, [pedidoId]);
+        }
+
+        // Actualizar detalles si existen
+        if (detalles?.length > 0) {
             for (const detalle of detalles) {
                 await connection.query(
-                    `INSERT INTO detalle_cambio (
-                        historial_id, detalle_id, 
-                        cantidad_anterior, cantidad_nueva
-                    ) VALUES (?, ?, ?, ?)`,
-                    [historial.insertId, detalle.detalle_id, detalle.cantidad_anterior, detalle.cantidad_nueva]
-                );
-
-                await connection.query(
                     `UPDATE detalle_pedido 
-                     SET cantidad_confirmada = ?,
-                         modificado = TRUE
+                     SET cantidad_solicitada = ?,
+                         modificado = TRUE,
+                         modificado_por_sucursal = ?,
+                         fecha_modificacion = CURRENT_TIMESTAMP
                      WHERE detalle_id = ?`,
-                    [detalle.cantidad_nueva, detalle.detalle_id]
+                    [detalle.cantidad_nueva, sucursalId, detalle.detalle_id]
                 );
             }
         }
 
+        // Actualizar estado del pedido
         await connection.query(
             'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
-            [estado, req.params.id]
+            [estado, pedidoId]
+        );
+
+        // Registrar en historial
+        await connection.query(`
+            INSERT INTO historial_pedido 
+            (pedido_id, estado_anterior, estado_nuevo, usuario_id, fecha)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [pedidoId, pedidoActual[0].estado, estado, usuarioId]
         );
 
         await connection.commit();
-        res.json({ message: 'Estado actualizado exitosamente' });
+        res.json({
+            success: true,
+            message: 'Estado actualizado exitosamente',
+            nuevoEstado: estado
+        });
     } catch (error) {
         await connection.rollback();
-        console.error('Error en actualizacion de estado:', error);
+        console.error('Error en actualización:', error);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+};
+
+async function verificarModificaciones(pedidoId, sucursalId) {
+    const [[pedido]] = await pool.query(
+        'SELECT sucursal_origen, sucursal_destino, estado FROM pedido WHERE pedido_id = ?',
+        [pedidoId]
+    );
+
+    // Obtener detalles actuales
+    const [detalles] = await pool.query(`
+        SELECT 
+            detalle_id,
+            cantidad_solicitada,
+            cantidad_confirmada,
+            modificado,
+            modificado_por_sucursal
+        FROM detalle_pedido 
+        WHERE pedido_id = ?
+    `, [pedidoId]);
+
+    // Si es sucursal destino
+    if (sucursalId === pedido.sucursal_destino) {
+        return detalles.some(detalle =>
+            detalle.cantidad_confirmada !== detalle.cantidad_solicitada ||
+            detalle.modificado_por_sucursal === sucursalId
+        );
+    }
+
+    // Si es sucursal origen, mantener la lógica actual
+    const [originales] = await pool.query(`
+        SELECT producto_id, cantidad_original 
+        FROM detalle_pedido_original 
+        WHERE pedido_id = ?
+    `, [pedidoId]);
+
+    return detalles.some(detalle => {
+        const original = originales.find(o => o.producto_id === detalle.producto_id);
+        return detalle.cantidad_solicitada !== original?.cantidad_original;
+    });
+}
+
+// Funciones nuevas y modificadas
+const compararCambios = async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        const { pedidoId } = req.params;
+        const sucursalId = req.user.sucursal_id;
+
+        const modificado = await verificarModificaciones(pedidoId, sucursalId);
+
+        console.log('Comparación:', {
+            pedidoId,
+            sucursalId,
+            modificado
+        });
+
+        res.json({ modificado });
+    } catch (error) {
+        console.error('Error al comparar cambios:', error);
+        res.status(500).json({ error: 'Error al comparar cambios' });
+    } finally {
+        connection.release();
+    }
+};  
+
+
+const agregarProductosAPedido = async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const { id: pedidoId } = req.params;
+        const { producto_id, cantidad, precio_unitario } = req.body;
+        const sucursalId = req.user.sucursal_id;
+
+        // Obtener información del pedido
+        const [[pedido]] = await connection.query(
+            'SELECT estado, sucursal_origen, sucursal_destino FROM pedido WHERE pedido_id = ?',
+            [pedidoId]
+        );
+
+        if (!pedido) {
+            throw new Error('Pedido no encontrado');
+        }
+
+        let result;
+        // Si es sucursal destino (fábrica)
+        if (sucursalId === pedido.sucursal_destino) {
+            [result] = await connection.query(
+                `INSERT INTO detalle_pedido (
+                    pedido_id,
+                    producto_id,
+                    cantidad_solicitada,
+                    cantidad_confirmada,
+                    precio_unitario,
+                    modificado,
+                    modificado_por_sucursal,
+                    estado
+                ) VALUES (?, ?, 0, ?, ?, TRUE, ?, 'PENDIENTE')`,
+                [pedidoId, producto_id, cantidad, precio_unitario, sucursalId]
+            );
+
+            // Guardar en detalle_pedido_original solo si es sucursal origen
+            await connection.query(`
+                INSERT INTO detalle_pedido_original
+                (pedido_id, producto_id, cantidad_original)
+                VALUES (?, ?, 0)`,
+                [pedidoId, producto_id]
+            );
+        } else {
+            // Si es sucursal origen
+            [result] = await connection.query(
+                `INSERT INTO detalle_pedido (
+                    pedido_id,
+                    producto_id,
+                    cantidad_solicitada,
+                    precio_unitario,
+                    modificado,
+                    modificado_por_sucursal,
+                    estado
+                ) VALUES (?, ?, ?, ?, TRUE, ?, 'PENDIENTE')`,
+                [pedidoId, producto_id, cantidad, precio_unitario, sucursalId]
+            );
+
+            // Guardar en detalle_pedido_original
+            await connection.query(`
+                INSERT INTO detalle_pedido_original
+                (pedido_id, producto_id, cantidad_original)
+                VALUES (?, ?, ?)`,
+                [pedidoId, producto_id, cantidad]
+            );
+        }
+
+        let nuevoEstado = pedido.estado;
+
+        // Si la sucursal origen agrega y está en EN_FABRICA, cambiar a EN_FABRICA_MODIFICADO
+        if (sucursalId === pedido.sucursal_origen && pedido.estado === 'EN_FABRICA') {
+            nuevoEstado = 'EN_FABRICA_MODIFICADO';
+
+            // Actualizar estado del pedido
+            await connection.query(
+                'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+                [nuevoEstado, pedidoId]
+            );
+
+            // Registrar en historial
+            await connection.query(`
+                INSERT INTO historial_pedido 
+                (pedido_id, estado_anterior, estado_nuevo, usuario_id)
+                VALUES (?, ?, ?, ?)`,
+                [pedidoId, pedido.estado, nuevoEstado, req.user.id]
+            );
+        }
+
+        await connection.commit();
+        res.json({
+            success: true,
+            message: 'Producto agregado exitosamente',
+            detalle: {
+                detalle_id: result.insertId,
+                pedido_id: pedidoId,
+                producto_id,
+                cantidad_solicitada: sucursalId === pedido.sucursal_destino ? 0 : cantidad,
+                cantidad_confirmada: sucursalId === pedido.sucursal_destino ? cantidad : null,
+                precio_unitario
+            },
+            nuevoEstado,
+            cambioEstado: nuevoEstado !== pedido.estado
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error en agregarProductosAPedido:', error);
+        res.status(400).json({ success: false, error: error.message });
+    } finally {
+        connection.release();
+    }
+};
+
+
+function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
+    const transicionesValidas = {
+        EN_FABRICA: {
+            PREPARADO: sucursalId === pedido.sucursal_destino,
+            PREPARADO_MODIFICADO: sucursalId === pedido.sucursal_destino,
+            EN_FABRICA_MODIFICADO: sucursalId === pedido.sucursal_origen
+        },
+        EN_FABRICA_MODIFICADO: {
+            PREPARADO: sucursalId === pedido.sucursal_destino,
+            PREPARADO_MODIFICADO: sucursalId === pedido.sucursal_destino
+        },
+        PREPARADO: {
+            RECIBIDO: sucursalId === pedido.sucursal_origen,
+            RECIBIDO_CON_DIFERENCIAS: sucursalId === pedido.sucursal_origen
+        },
+        PREPARADO_MODIFICADO: {
+            RECIBIDO: sucursalId === pedido.sucursal_origen,
+            RECIBIDO_CON_DIFERENCIAS: sucursalId === pedido.sucursal_origen
+        },
+        RECIBIDO_CON_DIFERENCIAS: {
+            FINALIZADO: sucursalId === pedido.sucursal_destino,
+            EN_FABRICA_MODIFICADO: sucursalId === pedido.sucursal_destino
+        },
+        RECIBIDO: {
+            FINALIZADO: true
+        }
+    };
+
+    return transicionesValidas[estadoActual]?.[nuevoEstado] ?? false;
+}
+const modificarCantidadProducto = async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        console.log('1. Iniciando modificación:', {
+            params: req.params,
+            body: req.body,
+            user: req.user
+        });
+
+        await connection.beginTransaction();
+        const { pedidoId, detalleId } = req.params;
+        const { cantidad } = req.body;
+
+        // Obtener sucursalId del usuario
+        const sucursalId = req.user.sucursales?.[0]?.id;
+        if (!sucursalId) {
+            throw new Error('Usuario sin sucursal asignada');
+        }
+
+        // Obtener información del pedido y validar
+        const [[pedido]] = await connection.query(`
+            SELECT p.*, dp.cantidad_solicitada, dp.cantidad_confirmada
+            FROM pedido p
+            JOIN detalle_pedido dp ON dp.pedido_id = p.pedido_id
+            WHERE p.pedido_id = ? AND dp.detalle_id = ?
+        `, [pedidoId, detalleId]);
+
+        console.log('2. Información del pedido:', pedido);
+
+        if (!pedido) {
+            throw new Error('Pedido no encontrado');
+        }
+
+        let nuevoEstado = pedido.estado;
+
+        // Determinar qué campo actualizar según la sucursal
+        if (sucursalId === pedido.sucursal_origen) {
+            // Sucursal origen modifica cantidad_solicitada
+            await connection.query(`
+                UPDATE detalle_pedido 
+                SET cantidad_solicitada = ?,
+                    modificado = 1,
+                    modificado_por_sucursal = ?,
+                    fecha_modificacion = CURRENT_TIMESTAMP
+                WHERE detalle_id = ? AND pedido_id = ?
+            `, [cantidad, sucursalId, detalleId, pedidoId]);
+
+            // Si está en EN_FABRICA, cambia a EN_FABRICA_MODIFICADO
+            if (pedido.estado === 'EN_FABRICA') {
+                nuevoEstado = 'EN_FABRICA_MODIFICADO';
+            }
+        } else if (sucursalId === pedido.sucursal_destino) {
+            // Sucursal destino modifica cantidad_confirmada
+            await connection.query(`
+                UPDATE detalle_pedido 
+                SET cantidad_confirmada = ?,
+                    modificado = 1,
+                    modificado_por_sucursal = ?,
+                    fecha_modificacion = CURRENT_TIMESTAMP
+                WHERE detalle_id = ? AND pedido_id = ?
+            `, [cantidad, sucursalId, detalleId, pedidoId]);
+        } else {
+            throw new Error('Sucursal no autorizada para modificar este pedido');
+        }
+
+        // Si hubo cambio de estado, actualizarlo
+        if (nuevoEstado !== pedido.estado) {
+            console.log('3. Actualizando estado:', {
+                estadoAnterior: pedido.estado,
+                nuevoEstado
+            });
+
+            await connection.query(
+                'UPDATE pedido SET estado = ? WHERE pedido_id = ?',
+                [nuevoEstado, pedidoId]
+            );
+
+            // Registrar en historial
+            await connection.query(`
+                INSERT INTO historial_pedido 
+                (pedido_id, estado_anterior, estado_nuevo, usuario_id)
+                VALUES (?, ?, ?, ?)`,
+                [pedidoId, pedido.estado, nuevoEstado, req.user.id]
+            );
+        }
+
+        await connection.commit();
+        res.json({
+            message: 'Cantidad actualizada correctamente',
+            nuevoEstado,
+            cambioEstado: nuevoEstado !== pedido.estado
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error al modificar cantidad:', error);
+        res.status(500).json({
+            error: 'Error al modificar cantidad',
+            message: error.message
+        });
     } finally {
         connection.release();
     }
@@ -374,54 +768,6 @@ const getPedidoHistorial = async (req, res) => {
         });
     }
 };
-
-const agregarProductosAPedido = async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const { id } = req.params;
-        const { productos, sucursal_id } = req.body;
-
-        console.log('Datos recibidos:', { id, productos, sucursal_id });
-
-        // 1. Verificar que el pedido existe
-        const [pedido] = await connection.query(
-            'SELECT * FROM pedido WHERE pedido_id = ?',
-            [id]
-        );
-
-        if (!pedido.length) {
-            throw new Error('Pedido no encontrado');
-        }
-
-        // 2. Verificar estado del pedido
-        if (['FINALIZADO', 'CANCELADO'].includes(pedido[0].estado)) {
-            throw new Error('No se puede modificar un pedido finalizado o cancelado');
-        }
-
-        // 3. Insertar cada producto
-        for (const producto of productos) {
-            await connection.query(
-                `INSERT INTO detalle_pedido (
-                    pedido_id, producto_id, cantidad_solicitada,
-                    precio_unitario, modificado, modificado_por_sucursal
-                ) VALUES (?, ?, ?, ?, true, ?)`,
-                [id, producto.producto_id, producto.cantidad, producto.precio_unitario, sucursal_id]
-            );
-        }
-
-        await connection.commit();
-        res.json({ message: 'Productos agregados exitosamente' });
-    } catch (error) {
-        await connection.rollback();
-        console.error('Error al agregar productos:', error);
-        res.status(400).json({ error: error.message });
-    } finally {
-        connection.release();
-    }
-};
-
 module.exports = {
     getPedidos,
     getPedidoById,
@@ -430,5 +776,7 @@ module.exports = {
     getPedidoHistorial,
     agregarProductosAPedido,
     getProductosDisponibles,
-    eliminarProductoDePedido
+    eliminarProductoDePedido,
+    compararCambios,
+    modificarCantidadProducto 
 };

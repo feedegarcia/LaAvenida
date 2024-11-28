@@ -2,6 +2,7 @@
     <div class="bg-white rounded-lg shadow-lg p-4">
         <h3 class="text-lg font-semibold mb-4">Detalle del Pedido</h3>
         <div class="overflow-x-auto">
+            <!-- Header común para todas las categorías -->
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -32,85 +33,108 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <tr v-for="detalle in detalles"
-                        :key="detalle.detalle_id"
-                        :class="[
-                            detalle.modificado ? getModificacionStyle(detalle) : '',
-                            'transition-colors duration-300'
-                        ]">
-                        <td class="px-4 py-3">
-                            <div class="flex items-center">
-                                <span class="font-medium">{{ detalle.producto_nombre }}</span>
-                                <span v-if="detalle.modificado"
-                                      class="ml-2 px-2 py-1 text-xs rounded-full"
-                                      :style="getModificadoBadgeStyle(detalle)">
-                                    Modificado por {{ getSucursalNombre(detalle.modificado_por_sucursal) }}
-                                </span>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            {{ detalle.cantidad_solicitada }}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeModificarCantidades">
-                                <input type="number"
-                                       v-model.number="cantidadesModificadas[detalle.detalle_id]"
-                                       :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
-                                       min="0"
-                                       class="w-20 text-right border rounded-md">
-                            </template>
-                            <template v-else>
-                                {{ detalle.cantidad_confirmada || detalle.cantidad_solicitada }}
-                            </template>
-                        </td>
-                        <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
-                            $ {{ formatoMoneda(detalle.precio_unitario) }}
-                        </td>
-                        <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
-                            $ {{ formatoMoneda(detalle.precio_unitario * (detalle.cantidad_confirmada || detalle.cantidad_solicitada)) }}
-                        </td>
-                        <td v-if="puedeModificar" class="px-4 py-3 text-center">
-                            <button @click="guardarCambios(detalle)"
-                                    v-bind:disabled="!hayCambios(detalle)"
-                                    :class="{
-                                        'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
-                                        'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
-                                        'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
-                                    }">
-                                Guardar
-                            </button>
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            <button @click="eliminarProducto(detalle)"
-                                    v-bind:disabled="!puedeModificar"
-                                    class="text-red-500 hover:text-red-700 transition-colors duration-200"
-                                    title="Eliminar producto">
-                                <XIcon class="w-5 h-5" />
-                            </button>
-                        </td>
-                    </tr>
+                    <!-- Iteración por categorías -->
+                    <template v-for="(productos, categoria) in detallesAgrupados" :key="categoria">
+                        <!-- Título de la categoría -->
+                        <tr class="bg-gray-50">
+                            <td colspan="7" class="border-l-4 border-gray-500 px-4 py-3 font-semibold text-gray-700">
+                                {{ categoria }}
+                            </td>
+                        </tr>
+
+                        <!-- Productos de la categoría -->
+                        <tr v-for="detalle in productos"
+                            :key="detalle.detalle_id"
+                            :class="[
+        detalle.modificado ? getModificacionStyle(detalle) : '',
+        'transition-colors duration-300'
+    ]">
+                            <td class="px-4 py-3 pl-8">
+                                <!-- Agregamos pl-8 para tabulación -->
+                                <div class="flex items-center">
+                                    <span class="font-medium">{{ detalle.producto_nombre }}</span>
+                                    <span v-if="detalle.modificado"
+                                          class="ml-2 px-2 py-1 text-xs rounded-full"
+                                          :style="getModificadoBadgeStyle(detalle)">
+                                        Modificado por {{ getSucursalNombre(detalle.modificado_por_sucursal) }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                {{ detalle.cantidad_solicitada }}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <template v-if="puedeModificarCantidades">
+                                    <input type="number"
+                                           v-model.number="cantidadesModificadas[detalle.detalle_id]"
+                                           :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
+                                           min="0"
+                                           class="w-20 text-right border rounded-md">
+                                </template>
+                                <template v-else>
+                                    {{ detalle.cantidad_confirmada || detalle.cantidad_solicitada }}
+                                </template>
+                            </td>
+                            <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
+                                $ {{ formatoMoneda(detalle.precio_unitario) }}
+                            </td>
+                            <td v-if="puedeVerTotales" class="px-4 py-3 text-right">
+                                $ {{ formatoMoneda(detalle.precio_unitario * (detalle.cantidad_confirmada || detalle.cantidad_solicitada)) }}
+                            </td>
+                            <td v-if="puedeModificar" class="px-4 py-3 text-center">
+                                <button @click="guardarCambios(detalle)"
+                                        v-bind:disabled="!hayCambios(detalle)"
+                                        :class="{
+                                            'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
+                                            'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
+                                            'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
+                                        }">
+                                    Guardar
+                                </button>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <button @click="eliminarProducto(detalle)"
+                                        v-bind:disabled="!puedeModificar"
+                                        class="text-red-500 hover:text-red-700 transition-colors duration-200"
+                                        title="Eliminar producto">
+                                    <XIcon class="w-5 h-5" />
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Subtotal de la categoría -->
+                        <tr v-if="puedeVerTotales" class="bg-gray-50 border-t">
+                            <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
+                                Subtotal {{ categoria }}:
+                            </td>
+                            <td class="px-4 py-2 text-right font-medium">
+                                $ {{ formatoMoneda(calcularSubtotalCategoria(productos)) }}
+                            </td>
+                            <td v-if="puedeModificar"></td>
+                            <td></td>
+                        </tr>
+                    </template>
                 </tbody>
-                <tfoot v-if="puedeVerTotales">
-                    <tr class="bg-gray-50">
-                        <td colspan="4" class="px-4 py-3 text-right font-medium">Total:</td>
-                        <td class="px-4 py-3 text-right font-medium">
-                            $ {{ formatoMoneda(totalPedido) }}
-                        </td>
-                        <td v-if="puedeModificar"></td>
-                        <td></td>
-                    </tr>
-                </tfoot>
             </table>
+
+            <!-- Total general -->
+            <div v-if="puedeVerTotales" class="mt-6 border-t pt-4">
+                <div class="flex justify-end items-center">
+                    <span class="font-medium mr-4">Total General:</span>
+                    <span class="font-bold text-lg">
+                        $ {{ formatoMoneda(totalPedido) }}
+                    </span>
+                </div>
+            </div>
         </div>
 
-        <!-- Boton y Modal para agregar productos -->
+        <!-- Botón Agregar Productos -->
         <div v-if="puedeModificar" class="mt-4">
             <button @click="mostrarSelectorProductos = true"
                     class="px-4 py-2 text-sm bg-emerald-500 text-white rounded hover:bg-emerald-600">
                 Agregar Producto
             </button>
         </div>
-
         <!-- Modal de Selector de Productos -->
         <TransitionRoot appear :show="mostrarSelectorProductos" as="template">
             <Dialog as="div" @close="mostrarSelectorProductos = false" class="relative z-50">
@@ -164,7 +188,6 @@
                                             <p class="font-medium">{{ producto.nombre }}</p>
                                             <p class="text-sm text-gray-500">
                                                 Codigo: {{ producto.codigo }}
-                                                <span class="ml-2">Stock: {{ producto.stock || 0 }}</span>
                                             </p>
                                         </div>
                                         <div class="flex items-center gap-3">
@@ -196,13 +219,15 @@
         </TransitionRoot>
     </div>
 </template>
+
+
 <script setup>
     import { ref, computed, watch } from 'vue';
     import { Dialog, DialogPanel, DialogOverlay, TransitionChild, TransitionRoot } from '@headlessui/vue';
     import { X, X as XIcon } from 'lucide-vue-next';
     import { useAuthStore } from '@/stores/auth';
     import axios from '@/utils/axios-config';
-    
+
     const authStore = useAuthStore();
     const cantidadesModificadas = ref({});
     const mostrarSelectorProductos = ref(false);
@@ -255,7 +280,13 @@
         }
     });
 
-    const emit = defineEmits(['modificacion', 'agregar-producto', 'estado-actualizado']);
+    const emit = defineEmits([
+        'modificacion',
+        'agregar-producto',
+        'estado-actualizado',
+        'producto-eliminado',
+        'producto-agregado'
+    ]);
 
     const totalPedido = computed(() => {
         return props.detalles.reduce((total, detalle) => {
@@ -263,6 +294,26 @@
             return total + (detalle.precio_unitario * cantidad);
         }, 0);
     });
+
+    const detallesAgrupados = computed(() => {
+        const grupos = {};
+        props.detalles.forEach(detalle => {
+            if (!grupos[detalle.categoria_nombre]) {
+                grupos[detalle.categoria_nombre] = [];
+            }
+            grupos[detalle.categoria_nombre].push(detalle);
+        });
+        return grupos;
+    });
+
+    // Función para calcular subtotal por categoría
+    const calcularSubtotalCategoria = (productos) => {
+        return productos.reduce((total, detalle) => {
+            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
+            return total + (detalle.precio_unitario * cantidad);
+        }, 0);
+    };
+
 
     const puedeModificarCantidades = computed(() => {
         return props.puedeModificar &&
@@ -332,44 +383,49 @@
         const cantidad = parseInt(nuevaCantidad) || 0;
         cantidadesModificadas.value[detalleId] = cantidad;
     };
+   
 
     const hayCambios = (detalle) => {
         const nuevaCantidad = cantidadesModificadas.value[detalle.detalle_id];
-        return nuevaCantidad !== undefined &&
-            nuevaCantidad !== detalle.cantidad_confirmada &&
-            nuevaCantidad !== detalle.cantidad_solicitada;
+        return nuevaCantidad !== undefined;
     };
 
-    const guardarCambios = (detalle) => {
-        const cambio = {
-            detalle_id: detalle.detalle_id,
-            cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
-            cantidad_nueva: cantidadesModificadas.value[detalle.detalle_id],
-            sucursal_id: authStore.user.sucursales[0]?.id
-        };
-        emit('modificacion', cambio);
-    };
+    const guardarCambios = async (detalle) => {
+        try {
+            const cambio = {
+                detalle_id: detalle.detalle_id,
+                cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
+                cantidad_nueva: cantidadesModificadas.value[detalle.detalle_id],
+                sucursal_id: authStore.user.sucursales[0]?.id
+            };
 
-    const agregarProducto = (producto) => {
-        const cantidad = nuevasSelecciones.value[producto.producto_id];
-        if (!cantidad || cantidad <= 0) return;
+            console.log('1. Iniciando modificación de cantidad:', cambio);
 
-        console.log('Enviando producto:', { // Debug
-            producto_id: producto.producto_id,
-            cantidad: cantidad,
-            precio_unitario: producto.precio_mayorista,
-            sucursal_id: authStore.user.sucursales[0]?.id
-        });
+            // Hacer la llamada HTTP al backend
+            const response = await axios.patch(
+                `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}`,
+                {
+                    cantidad: cantidadesModificadas.value[detalle.detalle_id],
+                    sucursal_id: authStore.user.sucursales[0]?.id
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
 
-        emit('agregar-producto', {
-            producto_id: producto.producto_id,
-            cantidad: cantidad,
-            precio_unitario: producto.precio_mayorista,
-            sucursal_id: authStore.user.sucursales[0]?.id
-        });
+            console.log('2. Respuesta del servidor:', response.data);
 
-        nuevasSelecciones.value[producto.producto_id] = 0;
-        mostrarSelectorProductos.value = false;
+            // Si la modificación fue exitosa, emitir eventos
+            if (response.data) {
+                await emit('modificacion', cambio);
+                emit('estado-actualizado');
+            }
+        } catch (error) {
+            console.error('Error al guardar cambios:', error);
+            // Aquí podrías mostrar un mensaje de error al usuario
+        }
     };
 
     // En DetalleProductos.vue, en la sección de methods
@@ -385,10 +441,44 @@
                     }
                 );
                 // Emitir evento para actualizar
-                emit('estado-actualizado'); // Asegurarte que este evento está declarado en defineEmits
+                emit('estado-actualizado');
             } catch (error) {
                 console.error('Error al eliminar producto:', error);
             }
+        }
+    };
+
+    const agregarProducto = async (producto) => {
+        const cantidad = nuevasSelecciones.value[producto.producto_id];
+        if (!cantidad || cantidad <= 0) return;
+
+        const datosProducto = {
+            producto_id: producto.producto_id,
+            cantidad: cantidad,
+            precio_unitario: producto.precio_mayorista,
+            sucursal_id: authStore.user.sucursales[0]?.id
+        };
+
+        console.log('DetalleProductos - Intentando agregar producto:', datosProducto);
+
+        try {
+            // Esperar la respuesta del evento
+            const resultado = await new Promise((resolve, reject) => {
+                emit('agregar-producto', datosProducto, resolve);
+            });
+
+            console.log('DetalleProductos - Respuesta del servidor:', resultado);
+
+            if (resultado?.success) {
+                nuevasSelecciones.value[producto.producto_id] = 0;
+                mostrarSelectorProductos.value = false;
+                emit('estado-actualizado');
+            } else {
+                throw new Error('No se pudo agregar el producto');
+            }
+        } catch (error) {
+            console.error('Error al agregar producto:', error);
+            alert('Error al agregar el producto. Por favor, intente nuevamente.');
         }
     };
 
