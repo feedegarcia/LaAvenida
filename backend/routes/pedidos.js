@@ -13,5 +13,6 @@ router.post('/:id/productos', authenticateToken, pedidosController.agregarProduc
 router.get('/:id/productos/disponibles', authenticateToken, pedidosController.getProductosDisponibles);
 router.delete('/:id/productos/:detalleId', authenticateToken, pedidosController.eliminarProductoDePedido);
 router.patch('/:pedidoId/productos/:detalleId', authenticateToken, pedidosController.modificarCantidadProducto);
+router.patch('/:pedidoId/productos/:detalleId/recibido', authenticateToken, pedidosController.marcarProductoRecibido);
 
 module.exports = router;

@@ -30,6 +30,10 @@
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Eliminar
                         </th>
+                        <th v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"
+                            class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Recibido
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -37,7 +41,7 @@
                     <template v-for="(productos, categoria) in detallesAgrupados" :key="categoria">
                         <!-- Título de la categoría -->
                         <tr class="bg-gray-50">
-                            <td colspan="7" class="border-l-4 border-gray-500 px-4 py-3 font-semibold text-gray-700">
+                            <td colspan="8" class="border-l-4 border-gray-500 px-4 py-3 font-semibold text-gray-700">
                                 {{ categoria }}
                             </td>
                         </tr>
@@ -46,11 +50,10 @@
                         <tr v-for="detalle in productos"
                             :key="detalle.detalle_id"
                             :class="[
-        detalle.modificado ? getModificacionStyle(detalle) : '',
-        'transition-colors duration-300'
-    ]">
+                detalle.modificado ? getModificacionStyle(detalle) : '',
+                'transition-colors duration-300'
+            ]">
                             <td class="px-4 py-3 pl-8">
-                                <!-- Agregamos pl-8 para tabulación -->
                                 <div class="flex items-center">
                                     <span class="font-medium">{{ detalle.producto_nombre }}</span>
                                     <span v-if="detalle.modificado"
@@ -85,10 +88,10 @@
                                 <button @click="guardarCambios(detalle)"
                                         v-bind:disabled="!hayCambios(detalle)"
                                         :class="{
-                                            'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
-                                            'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
-                                            'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
-                                        }">
+                            'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
+                            'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
+                            'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
+                        }">
                                     Guardar
                                 </button>
                             </td>
@@ -100,11 +103,18 @@
                                     <XIcon class="w-5 h-5" />
                                 </button>
                             </td>
+                            <td v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"
+                                class="px-4 py-3 text-center">
+                                <input type="checkbox"
+                                       :checked="estaRecibido(detalle.detalle_id)"
+                                       @change="marcarRecibido(detalle)"
+                                       class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500" />
+                            </td>
                         </tr>
 
                         <!-- Subtotal de la categoría -->
                         <tr v-if="puedeVerTotales" class="bg-gray-50 border-t">
-                            <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
+                           <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
                                 Subtotal {{ categoria }}:
                             </td>
                             <td class="px-4 py-2 text-right font-medium">
@@ -112,6 +122,7 @@
                             </td>
                             <td v-if="puedeModificar"></td>
                             <td></td>
+                            <td v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"></td>
                         </tr>
                     </template>
                 </tbody>
@@ -173,7 +184,13 @@
                                            placeholder="Buscar por nombre o codigo..."
                                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
                                 </div>
-
+                                <div class="flex justify-end mb-4">
+                                    <button v-if="hayProductosParaAgregar"
+                                            @click="agregarProductosSeleccionados"
+                                            class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600">
+                                        Agregar Seleccionados ({{ Object.values(nuevasSelecciones).filter(v => v > 0).length }})
+                                    </button>
+                                </div>
                                 <!-- Lista de productos -->
                                 <div class="max-h-96 overflow-y-auto">
                                     <div v-if="productosFiltrados.length === 0"
@@ -196,11 +213,6 @@
                                                    min="0"
                                                    placeholder="Cantidad"
                                                    class="w-24 px-2 py-1 border rounded text-right" />
-                                            <button @click="agregarProducto(producto)"
-                                                    v-bind:disabled="!nuevasSelecciones[producto.producto_id]"
-                                                    class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                Agregar
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -222,18 +234,21 @@
 
 
 <script setup>
-    import { ref, computed, watch } from 'vue';
+    import { ref, computed, watch, onMounted } from 'vue';
     import { Dialog, DialogPanel, DialogOverlay, TransitionChild, TransitionRoot } from '@headlessui/vue';
     import { X, X as XIcon } from 'lucide-vue-next';
     import { useAuthStore } from '@/stores/auth';
     import axios from '@/utils/axios-config';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
+    const pedidoStore = usePedidoStore();
     const authStore = useAuthStore();
     const cantidadesModificadas = ref({});
     const mostrarSelectorProductos = ref(false);
     const nuevasSelecciones = ref({});
     const busquedaProducto = ref('');
     const productosDisponibles = ref([]);
+    const productosRecibidos = ref(new Map());
 
     const cargarProductosDisponibles = async () => {
         try {
@@ -371,6 +386,34 @@
         );
         return sucursal?.nombre || 'Desconocida';
     };
+    const estaRecibido = (detalleId) => {
+        return productosRecibidos.value.get(detalleId) || false;
+    };  
+    const marcarRecibido = async (detalle) => {
+        try {
+            const currentState = productosRecibidos.value.get(detalle.detalle_id);
+            const nuevoEstado = !currentState;
+
+            const response = await axios.patch(
+                `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}/recibido`,
+                { recibido: nuevoEstado },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                // Crear un nuevo Map para forzar la reactividad
+                const newMap = new Map(productosRecibidos.value);
+                newMap.set(detalle.detalle_id, response.data.estadoActual);
+                productosRecibidos.value = newMap;
+            }
+        } catch (error) {
+            console.error('Error al marcar como recibido:', error.response?.data || error.message);
+        }
+    };
 
     const formatoMoneda = (valor) => {
         return new Intl.NumberFormat('es-AR', {
@@ -448,43 +491,49 @@
         }
     };
 
-    const agregarProducto = async (producto) => {
-        const cantidad = nuevasSelecciones.value[producto.producto_id];
-        if (!cantidad || cantidad <= 0) return;
+    const hayProductosParaAgregar = computed(() => {
+        return Object.values(nuevasSelecciones.value).some(cantidad => cantidad > 0);
+    });
 
-        const datosProducto = {
-            producto_id: producto.producto_id,
-            cantidad: cantidad,
-            precio_unitario: producto.precio_mayorista,
-            sucursal_id: authStore.user.sucursales[0]?.id
-        };
-
-        console.log('DetalleProductos - Intentando agregar producto:', datosProducto);
-
+    const agregarProductosSeleccionados = async () => {
         try {
-            // Esperar la respuesta del evento
-            const resultado = await new Promise((resolve, reject) => {
-                emit('agregar-producto', datosProducto, resolve);
-            });
+            const productosParaAgregar = productosFiltrados.value.filter(
+                producto => nuevasSelecciones.value[producto.producto_id] > 0
+            );
 
-            console.log('DetalleProductos - Respuesta del servidor:', resultado);
+            for (const producto of productosParaAgregar) {
+                const datosProducto = {
+                    producto_id: producto.producto_id,
+                    cantidad: nuevasSelecciones.value[producto.producto_id],
+                    precio_unitario: producto.precio_mayorista,
+                    sucursal_id: authStore.user.sucursales[0]?.id
+                };
 
-            if (resultado?.success) {
-                nuevasSelecciones.value[producto.producto_id] = 0;
-                mostrarSelectorProductos.value = false;
-                emit('estado-actualizado');
-            } else {
-                throw new Error('No se pudo agregar el producto');
+                await pedidoStore.agregarProductoAPedido(props.pedido.pedido_id, datosProducto);
             }
+
+            nuevasSelecciones.value = {};
+            mostrarSelectorProductos.value = false;
+            emit('estado-actualizado');
+
         } catch (error) {
-            console.error('Error al agregar producto:', error);
-            alert('Error al agregar el producto. Por favor, intente nuevamente.');
+            console.error('Error al agregar productos:', error);
         }
     };
+    
 
     watch(mostrarSelectorProductos, (nuevoValor) => {
         if (nuevoValor) {
             cargarProductosDisponibles();
         }
+    });
+    onMounted(() => {
+        console.log('Inicializando productosRecibidos:');
+        const initialState = new Map();
+        props.detalles.forEach(detalle => {
+            initialState.set(detalle.detalle_id, detalle.recibido === 1);
+            console.log(`Detalle ID: ${detalle.detalle_id}, Recibido: ${initialState.get(detalle.detalle_id)}`);
+        });
+        productosRecibidos.value = initialState;
     });
 </script>

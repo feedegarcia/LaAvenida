@@ -184,6 +184,7 @@ const getPedidoById = async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        // Obtener pedido y detalles básicos
         const [pedido] = await connection.query(`
             SELECT 
                 p.*,
@@ -195,6 +196,7 @@ const getPedidoById = async (req, res) => {
                 dp.precio_unitario,
                 dp.modificado,
                 dp.modificado_por_sucursal,
+                COALESCE(dp.recibido, 0) as recibido,
                 prod.producto_id,
                 prod.nombre as producto_nombre
             FROM pedido p
@@ -210,10 +212,18 @@ const getPedidoById = async (req, res) => {
             return res.status(404).json({ message: 'Pedido no encontrado' });
         }
 
-        // Obtener detalles del pedido
+        // Obtener detalles completos del pedido
         const [detalles] = await connection.query(`
         SELECT 
-            dp.*,
+            dp.detalle_id,
+            dp.pedido_id,
+            dp.producto_id,
+            dp.cantidad_solicitada,
+            dp.cantidad_confirmada,
+            dp.precio_unitario,
+            dp.modificado,
+            dp.modificado_por_sucursal,
+            CAST(dp.recibido AS UNSIGNED) as recibido,  -- Forzar el tipo
             p.nombre as producto_nombre,
             p.codigo as producto_codigo,
             cp.nombre as categoria_nombre,
@@ -226,9 +236,17 @@ const getPedidoById = async (req, res) => {
         ORDER BY cp.nombre, sp.nombre, p.nombre
     `, [req.params.id]);
 
+        console.log('Detalles cargados:', detalles.map(d => ({
+            detalle_id: d.detalle_id,
+            recibido: d.recibido
+        })));
+
         pedido[0].detalles = detalles;
 
         await connection.commit();
+
+
+
         res.json(pedido[0]);
     } catch (error) {
         await connection.rollback();
@@ -476,6 +494,70 @@ const compararCambios = async (req, res) => {
     }
 };  
 
+const marcarProductoRecibido = async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        console.log('Recibiendo petición de marcar:', {
+            params: req.params,
+            body: req.body
+        });
+
+        await connection.beginTransaction();
+
+        const { pedidoId, detalleId } = req.params;
+        const { recibido } = req.body;
+        const sucursalId = req.user.sucursal_id;
+
+        // Convertir explícitamente a 1 o 0 para MySQL
+        const valorRecibido = recibido ? 1 : 0;
+
+        // Verificar que es un pedido válido y el usuario tiene permisos
+        const [[pedido]] = await connection.query(
+            'SELECT estado, sucursal_origen FROM pedido WHERE pedido_id = ?',
+            [pedidoId]
+        );
+
+        if (!pedido || !['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)) {
+            throw new Error('Pedido no válido o en estado incorrecto');
+        }
+
+        console.log('Ejecutando update con:', {
+            recibido: valorRecibido,
+            detalleId,
+            pedidoId
+        });
+
+        // Actualizar el estado de recibido
+        await connection.query(
+            `UPDATE detalle_pedido 
+             SET recibido = ?,
+                 fecha_modificacion = CURRENT_TIMESTAMP
+             WHERE detalle_id = ? AND pedido_id = ?`,
+            [valorRecibido, detalleId, pedidoId]
+        );
+
+        // Verificar el cambio inmediatamente después
+        const [[actualizado]] = await connection.query(
+            'SELECT detalle_id, recibido FROM detalle_pedido WHERE detalle_id = ?',
+            [detalleId]
+        );
+
+        console.log('Estado después de actualizar:', actualizado);
+
+        await connection.commit();
+        res.json({
+            success: true,
+            message: 'Estado de recepción actualizado',
+            estadoActual: actualizado.recibido === 1
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error al marcar producto como recibido:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+};
 
 const agregarProductosAPedido = async (req, res) => {
     const connection = await pool.getConnection();
@@ -778,5 +860,6 @@ module.exports = {
     getProductosDisponibles,
     eliminarProductoDePedido,
     compararCambios,
+    marcarProductoRecibido,
     modificarCantidadProducto 
 };
