@@ -130,7 +130,24 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 };
             }
         },
+        obtenerSucursalDestinoDefault() {
+            if (!this.pedido.sucursal_origen) return null;
 
+            const authStore = useAuthStore();
+            const sucursalOrigen = authStore.user.sucursales.find(s => s.id === this.pedido.sucursal_origen);
+
+            if (sucursalOrigen?.tipo === 'FABRICA_VENTA') {
+                const otraFabrica = authStore.user.sucursales.find(s =>
+                    s.tipo === 'FABRICA_VENTA' && s.id !== sucursalOrigen.id
+                );
+                if (otraFabrica) {
+                    this.pedido.sucursal_destino = otraFabrica.id;
+                    return otraFabrica.id;
+                }
+            }
+
+            return null;
+        },
         obtenerProximaFechaEntrega() {
             const hoy = new Date();
             let fecha = new Date(hoy);

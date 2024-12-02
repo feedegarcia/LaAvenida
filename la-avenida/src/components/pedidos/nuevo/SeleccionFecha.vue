@@ -33,8 +33,9 @@
     };
 
     onMounted(() => {
-        // Inicializar con la fecha de entrega del store o la fecha actual
-        fechaSeleccionada.value = nuevoPedidoStore.pedido.fecha_entrega_requerida || new Date();
+        const fechaProxima = nuevoPedidoStore.obtenerProximaFechaEntrega();
+        fechaSeleccionada.value = fechaProxima;
+        nuevoPedidoStore.pedido.fecha_entrega_requerida = fechaProxima;
     });
 
     watch(() => nuevoPedidoStore.pedido.fecha_entrega_requerida, (nuevaFecha) => {

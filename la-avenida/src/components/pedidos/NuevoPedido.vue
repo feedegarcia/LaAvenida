@@ -121,12 +121,12 @@
 
     const validarPedido = () => {
         if (!nuevoPedidoStore.pedido.fecha_entrega_requerida) {
-            alert('Seleccione una fecha de entrega');
+            alert('Error interno: Fecha de entrega no inicializada');
             return false;
         }
 
         if (!nuevoPedidoStore.pedido.sucursal_origen) {
-            alert('Seleccione una sucursal');
+            alert('Error interno: Sucursal origen no inicializada');
             return false;
         }
 
@@ -142,22 +142,15 @@
         const borradorId = router.currentRoute.value.query.borrador;
         const sucursalUsuario = authStore.user.sucursales[0];
 
-        // Inicializar pedido
         if (borradorId) {
             await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId);
         } else {
             await nuevoPedidoStore.inicializarPedido('NUEVO');
         }
-
-        // Si hay una sola sucursal, manejar la carga inicial
         if (authStore.user.sucursales.length === 1) {
-            // Establecer la sucursal origen
             nuevoPedidoStore.pedido.sucursal_origen = sucursalUsuario.id;
+            nuevoPedidoStore.obtenerSucursalDestinoDefault();
 
-            // Esperar un momento para asegurar que todo esté inicializado
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Cargar productos
             try {
                 await nuevoPedidoStore.cargarProductos();
             } catch (error) {
