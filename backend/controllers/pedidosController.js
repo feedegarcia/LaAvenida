@@ -115,7 +115,7 @@ const eliminarProductoDePedido = async (req, res) => {
     try {
         await connection.beginTransaction();
         const { id: pedidoId, detalleId } = req.params;
-        const sucursalId = req.user.sucursal_id;
+        const sucursalId = req.user.sucursales[0]?.id;
 
         // Obtener información del pedido
         const [[pedido]] = await connection.query(
@@ -127,16 +127,18 @@ const eliminarProductoDePedido = async (req, res) => {
             throw new Error('Pedido no encontrado');
         }
 
-        // 1. Eliminar referencias en detalle_cambio
-        await connection.query(
-            'DELETE FROM detalle_cambio WHERE detalle_id = ?',
-            [detalleId]
-        );
+        // Determinar qué campo actualizar según la sucursal que elimina
+        let updateField = sucursalId === pedido.sucursal_origen ? 'cantidad_solicitada' : 'cantidad_confirmada';
 
-        // 2. Eliminar el detalle
+        // Actualizar la cantidad a 0 en lugar de eliminar
         await connection.query(
-            'DELETE FROM detalle_pedido WHERE pedido_id = ? AND detalle_id = ?',
-            [pedidoId, detalleId]
+            `UPDATE detalle_pedido 
+             SET ${updateField} = 0,
+                 modificado = 1,
+                 modificado_por_sucursal = ?,
+                 fecha_modificacion = CURRENT_TIMESTAMP
+             WHERE pedido_id = ? AND detalle_id = ?`,
+            [sucursalId, pedidoId, detalleId]
         );
 
         let nuevoEstado = pedido.estado;
@@ -163,7 +165,7 @@ const eliminarProductoDePedido = async (req, res) => {
         await connection.commit();
         res.json({
             success: true,
-            message: 'Producto eliminado exitosamente',
+            message: 'Producto actualizado exitosamente',
             nuevoEstado,
             cambioEstado: nuevoEstado !== pedido.estado
         });
@@ -433,11 +435,10 @@ const updatePedidoEstado = async (req, res) => {
 
 async function verificarModificaciones(pedidoId, sucursalId) {
     const [[pedido]] = await pool.query(
-        'SELECT sucursal_origen, sucursal_destino, estado FROM pedido WHERE pedido_id = ?',
+        'SELECT sucursal_origen, sucursal_destino FROM pedido WHERE pedido_id = ?',
         [pedidoId]
     );
 
-    // Obtener detalles actuales
     const [detalles] = await pool.query(`
         SELECT 
             detalle_id,
@@ -452,22 +453,13 @@ async function verificarModificaciones(pedidoId, sucursalId) {
     // Si es sucursal destino
     if (sucursalId === pedido.sucursal_destino) {
         return detalles.some(detalle =>
-            detalle.cantidad_confirmada !== detalle.cantidad_solicitada ||
+            (detalle.cantidad_confirmada !== null &&
+                detalle.cantidad_confirmada !== detalle.cantidad_solicitada) ||
             detalle.modificado_por_sucursal === sucursalId
         );
     }
 
-    // Si es sucursal origen, mantener la lógica actual
-    const [originales] = await pool.query(`
-        SELECT producto_id, cantidad_original 
-        FROM detalle_pedido_original 
-        WHERE pedido_id = ?
-    `, [pedidoId]);
-
-    return detalles.some(detalle => {
-        const original = originales.find(o => o.producto_id === detalle.producto_id);
-        return detalle.cantidad_solicitada !== original?.cantidad_original;
-    });
+    return false;
 }
 
 // Funciones nuevas y modificadas
@@ -477,22 +469,56 @@ const compararCambios = async (req, res) => {
         const { pedidoId } = req.params;
         const sucursalId = req.user.sucursal_id;
 
-        const modificado = await verificarModificaciones(pedidoId, sucursalId);
+        const [[pedido]] = await connection.query(
+            'SELECT sucursal_origen, sucursal_destino, estado FROM pedido WHERE pedido_id = ?',
+            [pedidoId]
+        );
 
-        console.log('Comparación:', {
+        const [detalles] = await connection.query(`
+            SELECT 
+                detalle_id,
+                cantidad_solicitada,
+                cantidad_confirmada,
+                modificado,
+                modificado_por_sucursal
+            FROM detalle_pedido 
+            WHERE pedido_id = ?
+        `, [pedidoId]);
+
+        let hayModificaciones = false;
+
+        // Si es sucursal destino
+        if (sucursalId === pedido.sucursal_destino) {
+            hayModificaciones = detalles.some(detalle => {
+                // Si cantidad_confirmada es null, no hay modificación
+                if (detalle.cantidad_confirmada === null) return false;
+
+                // Hay modificación solo si la cantidad confirmada es diferente a la solicitada
+                return detalle.cantidad_confirmada !== detalle.cantidad_solicitada;
+            });
+        }
+
+        console.log('Resultado verificación detallado:', {
             pedidoId,
             sucursalId,
-            modificado
+            hayModificaciones,
+            detalles: detalles.map(d => ({
+                detalle_id: d.detalle_id,
+                solicitada: d.cantidad_solicitada,
+                confirmada: d.cantidad_confirmada,
+                tieneModificacion: d.cantidad_confirmada !== null &&
+                    d.cantidad_confirmada !== d.cantidad_solicitada
+            }))
         });
 
-        res.json({ modificado });
+        res.json({ modificado: hayModificaciones });
     } catch (error) {
-        console.error('Error al comparar cambios:', error);
+        console.error('Error en compararCambios:', error);
         res.status(500).json({ error: 'Error al comparar cambios' });
     } finally {
         connection.release();
     }
-};  
+};
 
 const marcarProductoRecibido = async (req, res) => {
     const connection = await pool.getConnection();

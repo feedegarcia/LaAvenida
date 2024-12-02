@@ -9,8 +9,9 @@
     "\\la-avenida\\src\\components\\pedidos",
     "\\la-avenida\\src\\components\\pedidos\\nuevo",
     "\\la-avenida\\src\\components\\shared",
-    "\\la-avenida\\src\\components\\sucursales"
+    "\\la-avenida\\src\\components\\sucursales",
+    "\\la-avenida\\src\\stores"
   ],
-  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\PedidoStateManager.vue",
+  "SelectedNode": "\\backend\\routes\\productos.js",
   "PreviewInSolutionExplorer": false
 }

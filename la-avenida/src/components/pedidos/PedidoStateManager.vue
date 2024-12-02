@@ -22,16 +22,15 @@
                     <template v-for="accion in accionesDisponibles"
                               :key="accion.estado">
                         <button @click="cambiarEstado(accion.estado)"
-                                :disabled="!esAccionValida(accion)"
+                                :disabled="!accion.habilitado"
                                 :class="[
-                                    'px-4 py-2 text-white rounded transition-colors',
-                                    'disabled:opacity-50 disabled:cursor-not-allowed',
-                                    getBotonClass(accion)
-                                ]">
+                        'px-4 py-2 text-white rounded transition-colors',
+                        'disabled:opacity-50 disabled:cursor-not-allowed',
+                        getBotonClass(accion)
+                    ]">
                             {{ accion.label }}
                         </button>
                     </template>
-
                     <!-- Botón de cancelar -->
                     <button v-if="puedeCancelarPedido"
                             @click="confirmarCancelacion"
@@ -88,6 +87,9 @@
     import { useAuthStore } from '@/stores/auth';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
+    const loading = ref(false);
+    const error = ref(null);
+    const cambiosPendientes = ref(false);
     const props = defineProps({
         pedido: {
             type: Object,
@@ -100,19 +102,73 @@
     const authStore = useAuthStore();
     const pedidoStore = usePedidoStore();
     const mostrarConfirmacionCancelacion = ref(false);
-    const cambiosPendientes = ref(false);
+    const accionesDisponibles = ref([]);
 
-    // Verificar cambios al montar y cuando cambie el pedido
+    const actualizarAccionesDisponibles = async () => {
+        if (!props.pedido || !authStore.user) {
+            accionesDisponibles.value = [];
+            return;
+        }
+
+        try {
+            const acciones = await pedidoStore.obtenerAccionesPermitidas(
+                props.pedido.estado,
+                authStore.user,
+                props.pedido
+            );
+
+            accionesDisponibles.value = acciones.map(accion => ({
+                ...accion,
+                disabled: !accion.habilitado
+            }));
+
+            console.log('Acciones actualizadas:', {
+                estado: props.pedido.estado,
+                acciones: accionesDisponibles.value
+            });
+        } catch (error) {
+            if (error.name !== 'CanceledError') {
+                console.error('Error al actualizar acciones:', error);
+            }
+            accionesDisponibles.value = [];
+        }
+    };
+
     onMounted(async () => {
-        await verificarCambios();
+        try {
+            await actualizarAccionesDisponibles();
+            if (props.pedido?.pedido_id) {
+                await verificarCambios();
+            }
+        } catch (err) {
+            console.error('Error en mounted:', err);
+        }
     });
 
-    watch(() => props.pedido, async () => {
-        await verificarCambios();
+    watch(() => props.pedido.estado, async () => {
+        await actualizarAccionesDisponibles();
+    }, { immediate: false });
+
+    watch(() => props.pedido, async (newVal) => {
+        if (newVal?.pedido_id) {
+            await verificarCambios();
+        }
     }, { deep: true });
 
+
     async function verificarCambios() {
-        cambiosPendientes.value = await pedidoStore.tieneCambios(props.pedido.pedido_id);
+        try {
+            if (!props.pedido?.pedido_id) return;
+
+            loading.value = true;
+            const tieneCambios = await pedidoStore.tieneCambios(props.pedido.pedido_id);
+            cambiosPendientes.value = tieneCambios;
+        } catch (err) {
+            console.error('Error verificando cambios:', err);
+            error.value = 'Error verificando cambios';
+        } finally {
+            loading.value = false;
+        }
     }
 
     // Computed properties
@@ -128,13 +184,7 @@
         return pedidoStore.puedeVerTotales(props.pedido, authStore.user);
     });
 
-    const accionesDisponibles = computed(() => {
-        return pedidoStore.obtenerAccionesPermitidas(
-            props.pedido.estado,
-            authStore.user,
-            props.pedido
-        );
-    });
+
 
     // Methods
     const getEstadoClass = (estado) => {
@@ -153,8 +203,8 @@
             'bg-blue-500 hover:bg-blue-600': ['EN_FABRICA_MODIFICADO', 'PREPARADO_MODIFICADO'].includes(accion.estado)
         };
 
-        if (!esAccionValida(accion)) {
-            return 'bg-gray-400 cursor-not-allowed';
+        if (!accion.habilitado) {
+            return 'bg-gray-400';
         }
 
         return Object.entries(classes).find(([_, condition]) => condition)?.[0] || 'bg-gray-500 hover:bg-gray-600';
@@ -174,13 +224,9 @@
 
     const cambiarEstado = async (nuevoEstado) => {
         try {
-            const resultado = await pedidoStore.cambiarEstadoPedido(
-                props.pedido.pedido_id,
-                nuevoEstado,
-                { tieneCambios: cambiosPendientes.value }
-            );
-            await verificarCambios();
+            const resultado = await pedidoStore.cambiarEstadoPedido(props.pedido.pedido_id, nuevoEstado);
             emit('estado-actualizado', resultado);
+            await actualizarAccionesDisponibles();
         } catch (error) {
             console.error('Error al cambiar estado:', error);
         }
@@ -204,8 +250,8 @@
     };
 
     const handleEstadoActualizado = async () => {
-        console.log('PedidoStateManager - Actualizando estado');
-        await verificarCambios();
+        console.log('Actualizando estado y acciones disponibles');
+        await actualizarAccionesDisponibles();
         emit('estado-actualizado');
     };
 

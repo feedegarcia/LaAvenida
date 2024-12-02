@@ -192,6 +192,7 @@
 
     // Lifecycle Hooks
     onMounted(() => {
+
         cargarPedido();
 
         // Configurar intervalo de actualización automática

@@ -2,7 +2,7 @@
     <div class="bg-white shadow-lg rounded-lg p-6">
         <!-- Loading state -->
         <div v-if="nuevoPedidoStore.cargando" class="text-center py-8">
-            <p>Cargando...</p>
+            <p>Cargando productos...</p>
         </div>
 
         <!-- Error state -->
@@ -10,6 +10,8 @@
              class="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg mb-6">
             {{ nuevoPedidoStore.error }}
         </div>
+
+
 
         <template v-else>
             <!-- Header con botones de accion -->
@@ -22,7 +24,9 @@
             <SeleccionFecha />
 
             <!-- Selector de sucursal (si corresponde) -->
-            <SelectorSucursal v-if="authStore.user.sucursales.length > 1" />
+              <SelectorSucursal 
+            ref="selectorSucursal"
+            @sucursal-seleccionada="iniciarCargaProductos" />
 
             <!-- Seleccion de productos -->
             <SeleccionProductos />
@@ -63,6 +67,20 @@
     const nuevoPedidoStore = useNuevoPedidoStore();
     const authStore = useAuthStore();
 
+    const iniciarCargaProductos = async (sucursal) => {
+        if (!sucursal?.id || nuevoPedidoStore.pedido.sucursal_origen === sucursal.id) {
+            return;
+        }
+
+        try {
+            nuevoPedidoStore.pedido.sucursal_origen = sucursal.id;
+            await nuevoPedidoStore.cargarProductos();
+        } catch (error) {
+            if (error.name !== 'CanceledError') {
+                console.error('Error al cargar productos:', error);
+            }
+        }
+    };
     // Computed properties
     const puedeVerTotales = computed(() => {
         return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
@@ -120,22 +138,33 @@
         return true;
     };
 
-    // Lifecycle hooks
     onMounted(async () => {
         const borradorId = router.currentRoute.value.query.borrador;
-        let sucursalUnica = null;
+        const sucursalUsuario = authStore.user.sucursales[0];
 
-        // Si el usuario tiene una sola sucursal, la pasamos al inicializar
-        if (authStore.user.sucursales.length === 1) {
-            sucursalUnica = authStore.user.sucursales[0].id;
+        // Inicializar pedido
+        if (borradorId) {
+            await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId);
+        } else {
+            await nuevoPedidoStore.inicializarPedido('NUEVO');
         }
 
-        if (borradorId) {
-            // Cargar borrador existente
-            await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId, sucursalUnica);
-        } else {
-            // Iniciar nuevo pedido
-            await nuevoPedidoStore.inicializarPedido('NUEVO', null, sucursalUnica);
+        // Si hay una sola sucursal, manejar la carga inicial
+        if (authStore.user.sucursales.length === 1) {
+            // Establecer la sucursal origen
+            nuevoPedidoStore.pedido.sucursal_origen = sucursalUsuario.id;
+
+            // Esperar un momento para asegurar que todo esté inicializado
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Cargar productos
+            try {
+                await nuevoPedidoStore.cargarProductos();
+            } catch (error) {
+                if (error.name !== 'CanceledError') {
+                    console.error('Error cargando productos:', error);
+                }
+            }
         }
     });
 

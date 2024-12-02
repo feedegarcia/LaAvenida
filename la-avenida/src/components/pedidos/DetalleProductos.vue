@@ -64,12 +64,21 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                {{ detalle.cantidad_solicitada }}
+                                <template v-if="esSucursalOrigen && puedeModificarCantidades">
+                                    <input type="number"
+                                           v-model.number="cantidadesSolicitadas[detalle.detalle_id]"
+                                           :placeholder="detalle.cantidad_solicitada"
+                                           min="0"
+                                           class="w-20 text-right border rounded-md">
+                                </template>
+                                <template v-else>
+                                    {{ detalle.cantidad_solicitada }}
+                                </template>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <template v-if="puedeModificarCantidades">
+                                <template v-if="esSucursalDestino && puedeModificarCantidades">
                                     <input type="number"
-                                           v-model.number="cantidadesModificadas[detalle.detalle_id]"
+                                           v-model.number="cantidadesConfirmadas[detalle.detalle_id]"
                                            :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
                                            min="0"
                                            class="w-20 text-right border rounded-md">
@@ -114,7 +123,7 @@
 
                         <!-- Subtotal de la categoría -->
                         <tr v-if="puedeVerTotales" class="bg-gray-50 border-t">
-                           <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
+                            <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
                                 Subtotal {{ categoria }}:
                             </td>
                             <td class="px-4 py-2 text-right font-medium">
@@ -249,6 +258,16 @@
     const busquedaProducto = ref('');
     const productosDisponibles = ref([]);
     const productosRecibidos = ref(new Map());
+    const cantidadesSolicitadas = ref({});  
+    const cantidadesConfirmadas = ref({});  
+
+    const esSucursalOrigen = computed(() => {
+        return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_origen);
+    });
+
+    const esSucursalDestino = computed(() => {
+        return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_destino);
+    });
 
     const cargarProductosDisponibles = async () => {
         try {
@@ -388,7 +407,7 @@
     };
     const estaRecibido = (detalleId) => {
         return productosRecibidos.value.get(detalleId) || false;
-    };  
+    };
     const marcarRecibido = async (detalle) => {
         try {
             const currentState = productosRecibidos.value.get(detalle.detalle_id);
@@ -426,31 +445,40 @@
         const cantidad = parseInt(nuevaCantidad) || 0;
         cantidadesModificadas.value[detalleId] = cantidad;
     };
-   
+
 
     const hayCambios = (detalle) => {
-        const nuevaCantidad = cantidadesModificadas.value[detalle.detalle_id];
-        return nuevaCantidad !== undefined;
+        if (esSucursalOrigen.value) {
+            return cantidadesSolicitadas.value[detalle.detalle_id] !== undefined &&
+                cantidadesSolicitadas.value[detalle.detalle_id] !== detalle.cantidad_solicitada;
+        }
+
+        if (esSucursalDestino.value) {
+            return cantidadesConfirmadas.value[detalle.detalle_id] !== undefined &&
+                cantidadesConfirmadas.value[detalle.detalle_id] !== detalle.cantidad_confirmada;
+        }
+
+        return false;
     };
 
     const guardarCambios = async (detalle) => {
         try {
-            const cambio = {
-                detalle_id: detalle.detalle_id,
-                cantidad_anterior: detalle.cantidad_confirmada || detalle.cantidad_solicitada,
-                cantidad_nueva: cantidadesModificadas.value[detalle.detalle_id],
+            let datosActualizacion = {
                 sucursal_id: authStore.user.sucursales[0]?.id
             };
 
-            console.log('1. Iniciando modificación de cantidad:', cambio);
+            // Determinar qué campo actualizar según la sucursal
+            if (esSucursalOrigen.value) {
+                datosActualizacion.cantidad = cantidadesSolicitadas.value[detalle.detalle_id];
+                datosActualizacion.campo = 'cantidad_solicitada';
+            } else if (esSucursalDestino.value) {
+                datosActualizacion.cantidad = cantidadesConfirmadas.value[detalle.detalle_id];
+                datosActualizacion.campo = 'cantidad_confirmada';
+            }
 
-            // Hacer la llamada HTTP al backend
             const response = await axios.patch(
                 `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}`,
-                {
-                    cantidad: cantidadesModificadas.value[detalle.detalle_id],
-                    sucursal_id: authStore.user.sucursales[0]?.id
-                },
+                datosActualizacion,
                 {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -458,16 +486,18 @@
                 }
             );
 
-            console.log('2. Respuesta del servidor:', response.data);
-
-            // Si la modificación fue exitosa, emitir eventos
             if (response.data) {
-                await emit('modificacion', cambio);
+                await emit('modificacion', {
+                    detalle_id: detalle.detalle_id,
+                    cantidad_anterior: esSucursalOrigen.value ?
+                        detalle.cantidad_solicitada : detalle.cantidad_confirmada,
+                    cantidad_nueva: datosActualizacion.cantidad,
+                    sucursal_id: authStore.user.sucursales[0]?.id
+                });
                 emit('estado-actualizado');
             }
         } catch (error) {
             console.error('Error al guardar cambios:', error);
-            // Aquí podrías mostrar un mensaje de error al usuario
         }
     };
 
@@ -483,10 +513,22 @@
                         }
                     }
                 );
-                // Emitir evento para actualizar
+
+                console.log('Respuesta eliminación:', response.data);
+
+                // Actualizar estado local
+                if (esSucursalOrigen.value) {
+                    detalle.cantidad_solicitada = 0;
+                } else {
+                    detalle.cantidad_confirmada = 0;
+                }
+
+                // Emitir eventos
                 emit('estado-actualizado');
             } catch (error) {
                 console.error('Error al eliminar producto:', error);
+                // Mostrar mensaje de error al usuario
+                alert('Error al eliminar el producto: ' + (error.response?.data?.message || error.message));
             }
         }
     };
@@ -520,7 +562,7 @@
             console.error('Error al agregar productos:', error);
         }
     };
-    
+
 
     watch(mostrarSelectorProductos, (nuevoValor) => {
         if (nuevoValor) {

@@ -11,10 +11,14 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
             notas: '',
             detalles: {}
         },
-        productos: null,
+        productos: {
+            fabricas: {},
+            sinTac: [],
+            varios: []
+        }, 
         cargando: false,
         error: null,
-        modo: 'NUEVO'
+        modo: 'NUEVO',
     }),
 
     getters: {
@@ -45,18 +49,37 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 this.modo = modo;
                 this.error = null;
 
-                // Si recibimos una sucursal unica, la asignamos
+                this.pedido = {
+                    fecha_entrega_requerida: null,
+                    sucursal_origen: null,
+                    sucursal_destino: null,
+                    notas: '',
+                    detalles: {}
+                };
+
                 if (sucursalUnica) {
                     this.pedido.sucursal_origen = sucursalUnica;
                 }
 
-                if (borrador) {
-                    this.pedido = this.convertirBorradorAPedido(borrador);
-                } else {
-                    this.pedido.fecha_entrega_requerida = this.obtenerProximaFechaEntrega();
+                if (borrador && modo === 'BORRADOR') {
+                    const response = await axios.get(`/api/pedidos/${borrador}`);
+                    const pedidoBorrador = response.data;
+
+                    this.pedido = {
+                        fecha_entrega_requerida: new Date(pedidoBorrador.fecha_entrega_requerida),
+                        sucursal_origen: pedidoBorrador.sucursal_origen,
+                        sucursal_destino: pedidoBorrador.sucursal_destino,
+                        notas: pedidoBorrador.notas || '',
+                        detalles: pedidoBorrador.detalles.reduce((acc, detalle) => {
+                            acc[detalle.producto_id] = {
+                                cantidad: detalle.cantidad_solicitada,
+                                fecha_actualizacion: new Date()
+                            };
+                            return acc;
+                        }, {})
+                    };
                 }
 
-                await this.cargarProductos();
             } catch (error) {
                 console.error('Error al inicializar pedido:', error);
                 this.error = 'Error al inicializar pedido';
@@ -66,14 +89,35 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
         },
 
         async cargarProductos() {
+            if (this.cargando) return;
+
             try {
-                const response = await axios.get('/api/productos/pedido');
-                this.productos = response.data || [];
+                this.cargando = true;
+                this.error = null;
+
+                const response = await axios.get('/api/productos/pedido', {
+                    params: {
+                        sucursal_id: this.pedido.sucursal_origen
+                    }
+                });
+
+                this.productos = {
+                    fabricas: response.data.fabricas || {},
+                    sinTac: response.data.sinTac || [],
+                    varios: response.data.varios || []
+                };
             } catch (error) {
-                console.error('Error al cargar productos:', error);
-                this.error = 'Error al cargar productos';
-                this.productos = null;
+                if (error.name !== 'CanceledError') {
+                    console.error('Error en cargarProductos:', error);
+                    this.error = 'Error al cargar productos';
+                }
+            } finally {
+                this.cargando = false;
             }
+        }, 
+        resetear() {
+            this.cargando = false; 
+            this.$reset();
         },
 
         actualizarCantidad(productoId, cantidad) {
