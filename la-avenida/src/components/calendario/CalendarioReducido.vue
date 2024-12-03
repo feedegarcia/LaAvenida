@@ -1,7 +1,7 @@
 <template>
     <div class="bg-white rounded-lg shadow p-4">
         <div class="grid grid-cols-6 gap-2">
-            <!-- Próximos 11 días -->
+            <!-- Proximos 11 dias -->
             <div v-for="date in proximosDias"
                  :key="date.toISOString()"
                  @click="seleccionarFecha(date)"
@@ -12,9 +12,9 @@
                     esProximaEntrega(date) ? 'bg-blue-50' : '',
                     !esFechaValida(date) ? 'opacity-50 cursor-not-allowed' : ''
                  ]">
-                <!-- Contenedor principal del día -->
+                <!-- Contenedor principal del dia -->
                 <div class="p-2">
-                    <!-- Día y fecha -->
+                    <!-- Dia y fecha -->
                     <div class="text-center">
                         <div class="text-xs text-gray-500">
                             {{ formatearDiaSemana(date) }}
@@ -24,7 +24,7 @@
                         </div>
                     </div>
 
-                    <!-- Eventos del día (versión compacta) -->
+                    <!-- Eventos del dia (version compacta) -->
                     <div v-if="eventosStore.tieneEventos(date)"
                          class="mt-1">
                         <div class="text-xs text-center px-1 py-0.5 bg-[#4C9F38]/10 rounded truncate"
@@ -73,7 +73,7 @@
 
     const eventosStore = useEventosStore();
 
-    // Generar array con los próximos 11 días
+    // Generar array con los proximos 11 dias
     const proximosDias = computed(() => {
         const dias = [];
         const hoy = new Date();
@@ -88,7 +88,7 @@
     });
 
     const formatearDiaSemana = (fecha) => {
-        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const dias = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
         return dias[fecha.getDay()];
     };
 
