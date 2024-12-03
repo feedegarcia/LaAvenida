@@ -21,13 +21,13 @@
                 <div class="flex gap-2">
                     <template v-for="accion in accionesDisponibles"
                               :key="accion.estado">
-                        <button @click="cambiarEstado(accion.estado)"
-                                :disabled="!accion.habilitado"
+                        <button @click="ejecutarAccion(accion)"
+                                :disabled="!accion.habilitado || loading"
                                 :class="[
-                        'px-4 py-2 text-white rounded transition-colors',
-                        'disabled:opacity-50 disabled:cursor-not-allowed',
-                        getBotonClass(accion)
-                    ]">
+                                    'px-4 py-2 text-white rounded transition-colors',
+                                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                                    getBotonClass(accion)
+                                ]">
                             {{ accion.label }}
                         </button>
                     </template>
@@ -39,6 +39,17 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Error message -->
+            <div v-if="error"
+                 class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                {{ error }}
+            </div>
+
+            <!-- Loading state -->
+            <div v-if="loading" class="mt-2 text-sm text-blue-600">
+                Procesando acción...
+            </div>
         </div>
 
         <!-- Detalles del pedido -->
@@ -47,8 +58,7 @@
                           :puede-modificar="puedeModificarPedido"
                           :puede-ver-totales="puedeVerTotales"
                           @estado-actualizado="handleEstadoActualizado"
-                          @agregar-producto="handleAgregarProducto"
-                          @producto-modificado="handleProductoModificado" />
+                          @modificacion="handleProductoModificado" />
 
         <!-- Modal de confirmación de cancelación -->
         <Dialog v-if="mostrarConfirmacionCancelacion"
@@ -78,18 +88,14 @@
         </Dialog>
     </div>
 </template>
-
 <script setup>
-    import { ref, computed, onMounted, watch } from 'vue';
+    import { ref, computed, watch, onMounted } from 'vue';
     import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue';
     import DetalleProductos from './DetalleProductos.vue';
     import { formatearFecha } from '@/utils/dateUtils';
     import { useAuthStore } from '@/stores/auth';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
-    const loading = ref(false);
-    const error = ref(null);
-    const cambiosPendientes = ref(false);
     const props = defineProps({
         pedido: {
             type: Object,
@@ -98,78 +104,13 @@
     });
 
     const emit = defineEmits(['estado-actualizado']);
-
     const authStore = useAuthStore();
     const pedidoStore = usePedidoStore();
+    const loading = ref(false);
+    const error = ref('');
     const mostrarConfirmacionCancelacion = ref(false);
     const accionesDisponibles = ref([]);
-
-    const actualizarAccionesDisponibles = async () => {
-        if (!props.pedido || !authStore.user) {
-            accionesDisponibles.value = [];
-            return;
-        }
-
-        try {
-            const acciones = await pedidoStore.obtenerAccionesPermitidas(
-                props.pedido.estado,
-                authStore.user,
-                props.pedido
-            );
-
-            accionesDisponibles.value = acciones.map(accion => ({
-                ...accion,
-                disabled: !accion.habilitado
-            }));
-
-            console.log('Acciones actualizadas:', {
-                estado: props.pedido.estado,
-                acciones: accionesDisponibles.value
-            });
-        } catch (error) {
-            if (error.name !== 'CanceledError') {
-                console.error('Error al actualizar acciones:', error);
-            }
-            accionesDisponibles.value = [];
-        }
-    };
-
-    onMounted(async () => {
-        try {
-            await actualizarAccionesDisponibles();
-            if (props.pedido?.pedido_id) {
-                await verificarCambios();
-            }
-        } catch (err) {
-            console.error('Error en mounted:', err);
-        }
-    });
-
-    watch(() => props.pedido.estado, async () => {
-        await actualizarAccionesDisponibles();
-    }, { immediate: false });
-
-    watch(() => props.pedido, async (newVal) => {
-        if (newVal?.pedido_id) {
-            await verificarCambios();
-        }
-    }, { deep: true });
-
-
-    async function verificarCambios() {
-        try {
-            if (!props.pedido?.pedido_id) return;
-
-            loading.value = true;
-            const tieneCambios = await pedidoStore.tieneCambios(props.pedido.pedido_id);
-            cambiosPendientes.value = tieneCambios;
-        } catch (err) {
-            console.error('Error verificando cambios:', err);
-            error.value = 'Error verificando cambios';
-        } finally {
-            loading.value = false;
-        }
-    }
+    const cambiosPendientes = ref(false);
 
     // Computed properties
     const puedeModificarPedido = computed(() => {
@@ -184,8 +125,6 @@
         return pedidoStore.puedeVerTotales(props.pedido, authStore.user);
     });
 
-
-
     // Methods
     const getEstadoClass = (estado) => {
         const color = pedidoStore.obtenerColorEstado(estado);
@@ -197,60 +136,76 @@
     };
 
     const getBotonClass = (accion) => {
-        const classes = {
-            'bg-green-500 hover:bg-green-600': ['RECIBIDO', 'PREPARADO', 'FINALIZADO'].includes(accion.estado),
-            'bg-yellow-500 hover:bg-yellow-600': ['RECIBIDO_CON_DIFERENCIAS'].includes(accion.estado),
-            'bg-blue-500 hover:bg-blue-600': ['EN_FABRICA_MODIFICADO', 'PREPARADO_MODIFICADO'].includes(accion.estado)
-        };
-
         if (!accion.habilitado) {
             return 'bg-gray-400';
         }
 
-        return Object.entries(classes).find(([_, condition]) => condition)?.[0] || 'bg-gray-500 hover:bg-gray-600';
+        const baseClass = 'px-4 py-2 text-white rounded transition-colors';
+        const classes = {
+            'bg-emerald-500 hover:bg-emerald-600': ['RECIBIDO', 'PREPARADO', 'FINALIZADO'].includes(accion.estado),
+            'bg-yellow-500 hover:bg-yellow-600': ['RECIBIDO_CON_DIFERENCIAS'].includes(accion.estado),
+            'bg-blue-500 hover:bg-blue-600': ['EN_FABRICA_MODIFICADO', 'PREPARADO_MODIFICADO'].includes(accion.estado)
+        };
+
+        const stateClass = Object.entries(classes).find(([_, condition]) => condition)?.[0] || 'bg-gray-500 hover:bg-gray-600';
+        return `${baseClass} ${stateClass}`;
     };
 
-    const esAccionValida = (accion) => {
-        if (accion.activadoSi === 'tieneCambios') {
-            return cambiosPendientes.value;
-        }
-
-        if (accion.desactivadoSi === 'tieneCambios') {
-            return !cambiosPendientes.value;
-        }
-
-        return true;
-    };
-
-    const cambiarEstado = async (nuevoEstado) => {
+    async function verificarCambios() {
         try {
-            const resultado = await pedidoStore.cambiarEstadoPedido(props.pedido.pedido_id, nuevoEstado);
+            if (!props.pedido?.pedido_id) return;
+            loading.value = true;
+            const tieneCambios = await pedidoStore.tieneCambios(props.pedido.pedido_id);
+            cambiosPendientes.value = tieneCambios;
+            console.log('Estado de cambios:', {
+                pedidoId: props.pedido.pedido_id,
+                tieneCambios
+            });
+        } catch (err) {
+            console.error('Error verificando cambios:', err);
+            error.value = 'Error verificando cambios';
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    const ejecutarAccion = async (accion) => {
+        try {
+            loading.value = true;
+            error.value = '';
+            const resultado = await pedidoStore.cambiarEstadoPedido(props.pedido.pedido_id, accion.estado);
             emit('estado-actualizado', resultado);
             await actualizarAccionesDisponibles();
-        } catch (error) {
-            console.error('Error al cambiar estado:', error);
+        } catch (err) {
+            error.value = err.message;
+            console.error('Error al ejecutar acción:', err);
+        } finally {
+            loading.value = false;
         }
     };
 
-    const handleAgregarProducto = async (producto) => {
+    const actualizarAccionesDisponibles = async () => {
         try {
-            console.log('PedidoStateManager - Agregando producto:', producto);
-            await pedidoStore.agregarProductoAPedido(props.pedido.pedido_id, producto);
-            await verificarCambios();
-            console.log('PedidoStateManager - Producto agregado exitosamente');
-            emit('estado-actualizado');
+            console.log('Actualizando acciones disponibles');
+            const acciones = await pedidoStore.obtenerAccionesPermitidas(
+                props.pedido.estado,
+                authStore.user,
+                props.pedido
+            );
+            accionesDisponibles.value = acciones;
+            console.log('Acciones actualizadas:', acciones);
         } catch (error) {
-            console.error('PedidoStateManager - Error:', error);
+            console.error('Error actualizando acciones:', error);
         }
     };
 
     const handleProductoModificado = async () => {
         await verificarCambios();
-        emit('estado-actualizado');
+        await actualizarAccionesDisponibles();
     };
 
     const handleEstadoActualizado = async () => {
-        console.log('Actualizando estado y acciones disponibles');
+        console.log('Manejando actualización de estado');
         await actualizarAccionesDisponibles();
         emit('estado-actualizado');
     };
@@ -261,11 +216,37 @@
 
     const cancelarPedido = async () => {
         try {
+            loading.value = true;
             await pedidoStore.cambiarEstadoPedido(props.pedido.pedido_id, 'CANCELADO');
             mostrarConfirmacionCancelacion.value = false;
             emit('estado-actualizado', { estado: 'CANCELADO' });
         } catch (error) {
             console.error('Error al cancelar pedido:', error);
+            error.value = error.message;
+        } finally {
+            loading.value = false;
         }
     };
+
+    // Lifecycle hooks
+    watch(() => props.pedido.estado, async () => {
+        console.log('Estado del pedido cambió:', props.pedido.estado);
+        await actualizarAccionesDisponibles();
+    });
+
+    watch(() => props.pedido, async (newVal) => {
+        if (newVal?.pedido_id) {
+            await verificarCambios();
+        }
+    }, { deep: true });
+
+    onMounted(async () => {
+        console.log('Montando componente PedidoStateManager');
+        pedidoStore.setContexto(authStore.user.sucursales[0]?.id, props.pedido);
+        await Promise.all([
+            actualizarAccionesDisponibles(),
+            verificarCambios()
+        ]);
+    });
+
 </script>

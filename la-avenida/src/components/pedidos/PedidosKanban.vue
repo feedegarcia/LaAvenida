@@ -1,23 +1,5 @@
 ﻿<template>
     <div class="space-y-8">
-        <!-- Tabs de sucursales -->
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
-                <button v-for="sucursal in sucursalesUsuario"
-                        :key="sucursal.sucursal_id"
-                        @click="sucursalSeleccionada = sucursal.sucursal_id"
-                        :class="[
-                            'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm',
-                            sucursalSeleccionada === sucursal.sucursal_id
-                                ? 'border-emerald-500 text-emerald-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        ]">
-                    {{ sucursal.nombre }}
-                </button>
-            </nav>
-        </div>
-
-        <!-- Content -->
         <div v-if="!loading" class="space-y-6">
             <div v-for="seccion in seccionesOrdenadas"
                  :key="seccion.id"
@@ -54,7 +36,7 @@
                                         :key="pedido.pedido_id"
                                         :pedido="pedido"
                                         :highlight="Boolean(pedido.tiene_solicitud_pendiente)"
-                                        @click="$emit('pedidoSeleccionado', pedido.pedido_id)" />
+                                        @click="$emit('pedido-seleccionado', pedido.pedido_id)" />
                         </div>
                     </div>
                 </div>
@@ -64,68 +46,68 @@
 </template>
 
 <script setup>
-    import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-    import { useAuthStore } from '@/stores/auth';
+    import { ref, computed, onMounted, watch } from 'vue';
     import { usePedidoStore } from '@/stores/pedidoStateMachine';
     import PedidoCard from './PedidoCard.vue';
     import axios from '@/utils/axios-config';
 
     const ITEMS_POR_PAGINA = 2;
-    const authStore = useAuthStore();
     const pedidoStore = usePedidoStore();
     const pedidos = ref([]);
-    const sucursalSeleccionada = ref(null);
     const loading = ref(false);
-    const sucursalesUsuario = ref([]); 
-
     const paginacion = ref({});
 
-    const seccionesOrdenadas = computed(() => {
-        return [
-            {
-                id: 'pedidos-cola',
-                titulo: 'Pedidos por Procesar',
-                columnas: [
-                    {
-                        id: 'en_fabrica',
-                        titulo: 'En Fabrica',
-                        estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO']
-                    },
-                    {
-                        id: 'finalizados',
-                        titulo: 'Finalizados',
-                        estados: ['FINALIZADO']
-                    }
-                ]
-            },
-            {
-                id: 'pedidos-realizados',
-                titulo: 'Pedidos Realizados',
-                tipo: 'origen', // Se usa para filtrar por sucursal de origen
-                columnas: [
-                    {
-                        id: 'borradores',
-                        titulo: 'Borradores',
-                        estados: ['BORRADOR']
-                    },
-                    {
-                        id: 'en_proceso',
-                        titulo: 'En Proceso',
-                        estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO', 'PREPARADO', 'PREPARADO_MODIFICADO']
-                    },
-                    {
-                        id: 'finalizados',
-                        titulo: 'Finalizados',
-                        estados: ['RECIBIDO', 'FINALIZADO']
-                    }
-                ]
-            }
-        ];
+    const props = defineProps({
+        sucursalActiva: {
+            type: Number,
+            required: true,
+            default: 0 
+        }
     });
 
+    const emit = defineEmits(['pedido-seleccionado']);
 
+    const seccionesOrdenadas = computed(() => [
+        {
+            id: 'pedidos-cola',
+            titulo: 'Pedidos por Procesar',
+            columnas: [
+                {
+                    id: 'en_fabrica',
+                    titulo: 'En Fabrica',
+                    estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO']
+                },
+                {
+                    id: 'finalizados',
+                    titulo: 'Finalizados',
+                    estados: ['FINALIZADO']
+                }
+            ]
+        },
+        {
+            id: 'pedidos-realizados',
+            titulo: 'Pedidos Realizados',
+            tipo: 'origen',
+            columnas: [
+                {
+                    id: 'borradores',
+                    titulo: 'Borradores',
+                    estados: ['BORRADOR']
+                },
+                {
+                    id: 'en_proceso',
+                    titulo: 'En Proceso',
+                    estados: ['EN_FABRICA', 'EN_FABRICA_MODIFICADO', 'PREPARADO', 'PREPARADO_MODIFICADO']
+                },
+                {
+                    id: 'finalizados',
+                    titulo: 'Finalizados',
+                    estados: ['RECIBIDO', 'FINALIZADO']
+                }
+            ]
+        }
+    ]);
 
-    // Funciones de paginacion
     const getPagina = (seccionId, columnaId) => {
         const key = `${seccionId}_${columnaId}`;
         return paginacion.value[key] || 1;
@@ -158,64 +140,40 @@
     };
 
     const getPedidosFiltrados = (estados, tipo) => {
-        if (!sucursalSeleccionada.value) return [];
+        if (!props.sucursalActiva) return [];
 
         return pedidos.value.filter(pedido => {
-            const sucursalId = parseInt(sucursalSeleccionada.value);
+            const pedidoSucursalId = tipo === 'origen' ?
+                pedido.sucursal_origen : pedido.sucursal_destino;
 
-
-            // Obtener la sucursal correspondiente segun el tipo
-            let pedidoSucursalId;
-            if (tipo === 'origen') {
-                pedidoSucursalId = parseInt(pedido.sucursal_origen) || null;
-            } else {
-                pedidoSucursalId = parseInt(pedido.sucursal_destino) || null;
-            }
-
-            const esSucursalCorrecta = pedidoSucursalId === sucursalId;
-            const estadoCorrecto = estados.includes(pedido.estado);
-
-            // Log del resultado de la evaluacion
-          
-
-            return esSucursalCorrecta && estadoCorrecto;
+            return pedidoSucursalId === props.sucursalActiva &&
+                estados.includes(pedido.estado);
         });
     };
 
-    const getIdFromSucursal = (nombreSucursal) => {
-        const sucursal = sucursalesUsuario.value.find(s => s.nombre === nombreSucursal);
-        return sucursal?.sucursal_id;
+    const cargarPedidos = async () => {
+        try {
+            loading.value = true;
+            const response = await axios.get('/api/pedidos');
+            pedidos.value = response.data;
+        } catch (error) {
+            if (error.name !== 'CanceledError') {
+                console.error('Error cargando pedidos:', error);
+            }
+        } finally {
+            loading.value = false;
+        }
     };
 
-        const cargarDatos = async () => {
-            try {
-                loading.value = true;
-
-                const [sucursalesRes, pedidosRes] = await Promise.all([
-                    axios.get(`/api/users/${authStore.user.id}/sucursales`),
-                    axios.get('/api/pedidos')
-                ]);
-
-                sucursalesUsuario.value = sucursalesRes.data;
-                pedidos.value = pedidosRes.data;
-
-                if (sucursalesUsuario.value.length > 0 && !sucursalSeleccionada.value) {
-                    sucursalSeleccionada.value = sucursalesUsuario.value[0].sucursal_id;
-                }
-            } catch (error) {
-                console.error('Error cargando datos:', error);
-            } finally {
-                loading.value = false;
-            }
-        };
-
-
-    onMounted(() => {
-        cargarDatos();
+    watch(() => props.sucursalActiva, () => {
+        cargarPedidos();
     });
 
-    // Exponer metodo de recarga
+    onMounted(() => {
+        cargarPedidos();
+    });
+
     defineExpose({
-        recargarPedidos: cargarDatos
+        recargarPedidos: cargarPedidos
     });
 </script>

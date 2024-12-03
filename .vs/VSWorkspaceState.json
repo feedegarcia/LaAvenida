@@ -1,17 +1,16 @@
 {
   "ExpandedNodes": [
     "",
-    "\\backend",
-    "\\backend\\routes",
     "\\la-avenida",
+    "\\la-avenida\\public",
     "\\la-avenida\\src",
+    "\\la-avenida\\src\\assets",
     "\\la-avenida\\src\\components",
-    "\\la-avenida\\src\\components\\pedidos",
-    "\\la-avenida\\src\\components\\pedidos\\nuevo",
-    "\\la-avenida\\src\\components\\shared",
-    "\\la-avenida\\src\\components\\sucursales",
-    "\\la-avenida\\src\\stores"
+    "\\la-avenida\\src\\components\\calendario",
+    "\\la-avenida\\src\\router",
+    "\\la-avenida\\src\\utils",
+    "\\la-avenida\\src\\views"
   ],
-  "SelectedNode": "\\backend\\routes\\productos.js",
+  "SelectedNode": "\\la-avenida\\src\\views\\Pedidos.vue",
   "PreviewInSolutionExplorer": false
 }

@@ -2,7 +2,6 @@
     <div class="bg-white rounded-lg shadow-lg p-4">
         <h3 class="text-lg font-semibold mb-4">Detalle del Pedido</h3>
         <div class="overflow-x-auto">
-            <!-- Header común para todas las categorías -->
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -30,29 +29,26 @@
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Eliminar
                         </th>
-                        <th v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"
+                        <th v-if="muestraCheckRecibido"
                             class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Recibido
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    <!-- Iteración por categorías -->
+                <tbody class="divide-y divide-gray-200">
                     <template v-for="(productos, categoria) in detallesAgrupados" :key="categoria">
-                        <!-- Título de la categoría -->
                         <tr class="bg-gray-50">
                             <td colspan="8" class="border-l-4 border-gray-500 px-4 py-3 font-semibold text-gray-700">
                                 {{ categoria }}
                             </td>
                         </tr>
 
-                        <!-- Productos de la categoría -->
                         <tr v-for="detalle in productos"
                             :key="detalle.detalle_id"
                             :class="[
-                detalle.modificado ? getModificacionStyle(detalle) : '',
-                'transition-colors duration-300'
-            ]">
+                                detalle.modificado ? getModificacionStyle(detalle) : '',
+                                'transition-colors duration-300'
+                            ]">
                             <td class="px-4 py-3 pl-8">
                                 <div class="flex items-center">
                                     <span class="font-medium">{{ detalle.producto_nombre }}</span>
@@ -64,7 +60,7 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <template v-if="esSucursalOrigen && puedeModificarCantidades">
+                                <template v-if="puedoModificarCantidadSegunRol('ORIGEN')">
                                     <input type="number"
                                            v-model.number="cantidadesSolicitadas[detalle.detalle_id]"
                                            :placeholder="detalle.cantidad_solicitada"
@@ -76,7 +72,7 @@
                                 </template>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <template v-if="esSucursalDestino && puedeModificarCantidades">
+                                <template v-if="puedoModificarCantidadSegunRol('FABRICA')">
                                     <input type="number"
                                            v-model.number="cantidadesConfirmadas[detalle.detalle_id]"
                                            :placeholder="detalle.cantidad_confirmada || detalle.cantidad_solicitada"
@@ -97,10 +93,10 @@
                                 <button @click="guardarCambios(detalle)"
                                         v-bind:disabled="!hayCambios(detalle)"
                                         :class="{
-                            'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
-                            'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
-                            'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
-                        }">
+                                            'text-sm transition-colors duration-200 px-3 py-1 rounded': true,
+                                            'bg-emerald-500 text-white hover:bg-emerald-600': hayCambios(detalle),
+                                            'bg-gray-200 text-gray-400 cursor-not-allowed': !hayCambios(detalle)
+                                        }">
                                     Guardar
                                 </button>
                             </td>
@@ -112,16 +108,15 @@
                                     <XIcon class="w-5 h-5" />
                                 </button>
                             </td>
-                            <td v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"
+                            <td v-if="muestraCheckRecibido"
                                 class="px-4 py-3 text-center">
                                 <input type="checkbox"
                                        :checked="estaRecibido(detalle.detalle_id)"
                                        @change="marcarRecibido(detalle)"
+                                       :disabled="!puedoModificarRecepcion"
                                        class="h-4 w-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500" />
                             </td>
                         </tr>
-
-                        <!-- Subtotal de la categoría -->
                         <tr v-if="puedeVerTotales" class="bg-gray-50 border-t">
                             <td :colspan="puedeModificar ? 4 : 3" class="px-4 py-2 text-right font-medium">
                                 Subtotal {{ categoria }}:
@@ -131,7 +126,7 @@
                             </td>
                             <td v-if="puedeModificar"></td>
                             <td></td>
-                            <td v-if="['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)"></td>
+                            <td v-if="muestraCheckRecibido"></td>
                         </tr>
                     </template>
                 </tbody>
@@ -155,6 +150,7 @@
                 Agregar Producto
             </button>
         </div>
+
         <!-- Modal de Selector de Productos -->
         <TransitionRoot appear :show="mostrarSelectorProductos" as="template">
             <Dialog as="div" @close="mostrarSelectorProductos = false" class="relative z-50">
@@ -182,7 +178,7 @@
                                     <h3 class="text-lg font-medium">Agregar Productos</h3>
                                     <button @click="mostrarSelectorProductos = false"
                                             class="text-gray-500 hover:text-gray-700">
-                                        <X class="h-5 w-5" />
+                                        <XIcon class="h-5 w-5" />
                                     </button>
                                 </div>
 
@@ -193,13 +189,7 @@
                                            placeholder="Buscar por nombre o codigo..."
                                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
                                 </div>
-                                <div class="flex justify-end mb-4">
-                                    <button v-if="hayProductosParaAgregar"
-                                            @click="agregarProductosSeleccionados"
-                                            class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600">
-                                        Agregar Seleccionados ({{ Object.values(nuevasSelecciones).filter(v => v > 0).length }})
-                                    </button>
-                                </div>
+
                                 <!-- Lista de productos -->
                                 <div class="max-h-96 overflow-y-auto">
                                     <div v-if="productosFiltrados.length === 0"
@@ -222,6 +212,11 @@
                                                    min="0"
                                                    placeholder="Cantidad"
                                                    class="w-24 px-2 py-1 border rounded text-right" />
+                                            <button @click="agregarProducto(producto)"
+                                                    v-bind:disabled="!nuevasSelecciones[producto.producto_id]"
+                                                    class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                Agregar
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -240,56 +235,13 @@
         </TransitionRoot>
     </div>
 </template>
-
-
 <script setup>
-    import { ref, computed, watch, onMounted } from 'vue';
-    import { Dialog, DialogPanel, DialogOverlay, TransitionChild, TransitionRoot } from '@headlessui/vue';
-    import { X, X as XIcon } from 'lucide-vue-next';
+    import { ref, computed, onMounted, watch } from 'vue';
+    import { Dialog, DialogPanel, TransitionChild, TransitionRoot } from '@headlessui/vue';
+    import { X as XIcon } from 'lucide-vue-next';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
     import { useAuthStore } from '@/stores/auth';
     import axios from '@/utils/axios-config';
-    import { usePedidoStore } from '@/stores/pedidoStateMachine';
-
-    const pedidoStore = usePedidoStore();
-    const authStore = useAuthStore();
-    const cantidadesModificadas = ref({});
-    const mostrarSelectorProductos = ref(false);
-    const nuevasSelecciones = ref({});
-    const busquedaProducto = ref('');
-    const productosDisponibles = ref([]);
-    const productosRecibidos = ref(new Map());
-    const cantidadesSolicitadas = ref({});  
-    const cantidadesConfirmadas = ref({});  
-
-    const esSucursalOrigen = computed(() => {
-        return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_origen);
-    });
-
-    const esSucursalDestino = computed(() => {
-        return authStore.user.sucursales.some(s => s.id === props.pedido.sucursal_destino);
-    });
-
-    const cargarProductosDisponibles = async () => {
-        try {
-            const response = await axios.get(
-                `/api/pedidos/${props.pedido.pedido_id}/productos/disponibles`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-            // Asegurarnos que los productos son únicos y tienen la info necesaria
-            productosDisponibles.value = response.data.map(p => ({
-                ...p,
-                uniqueKey: `${p.producto_id}-${Date.now()}` // Asegurar keys únicas
-            }));
-        } catch (error) {
-            console.error('Error cargando productos:', error);
-            productosDisponibles.value = [];
-        }
-    };
-
 
     const props = defineProps({
         pedido: {
@@ -299,10 +251,6 @@
         detalles: {
             type: Array,
             required: true
-        },
-        productos: {
-            type: Array,
-            default: () => []
         },
         puedeModificar: {
             type: Boolean,
@@ -314,13 +262,12 @@
         }
     });
 
-    const emit = defineEmits([
-        'modificacion',
-        'agregar-producto',
-        'estado-actualizado',
-        'producto-eliminado',
-        'producto-agregado'
-    ]);
+    const emit = defineEmits(['modificacion', 'estado-actualizado']);
+    const pedidoStore = usePedidoStore();
+    const authStore = useAuthStore();
+    const cantidadesSolicitadas = ref({});
+    const cantidadesConfirmadas = ref({});
+    const productosRecibidos = ref(new Map());
 
     const totalPedido = computed(() => {
         return props.detalles.reduce((total, detalle) => {
@@ -328,6 +275,82 @@
             return total + (detalle.precio_unitario * cantidad);
         }, 0);
     });
+
+    const mostrarSelectorProductos = ref(false);
+    const productosDisponibles = ref([]);
+    const nuevasSelecciones = ref({});
+
+    const hayProductosSeleccionados = computed(() => {
+        return Object.values(nuevasSelecciones.value).some(cantidad => cantidad > 0);
+    });
+
+    // Métodos
+    const cargarProductosDisponibles = async () => {
+        try {
+            const response = await axios.get(`/api/pedidos/${props.pedido.pedido_id}/productos/disponibles`);
+            productosDisponibles.value = response.data;
+        } catch (error) {
+            console.error('Error al cargar productos:', error);
+        }
+    };
+
+    const confirmarAgregarProductos = async () => {
+        try {
+            const productosParaAgregar = Object.entries(nuevasSelecciones.value)
+                .filter(([_, cantidad]) => cantidad > 0)
+                .map(([productoId, cantidad]) => ({
+                    producto_id: parseInt(productoId),
+                    cantidad: parseInt(cantidad),
+                }));
+
+            for (const producto of productosParaAgregar) {
+                await pedidoStore.agregarProducto(props.pedido.pedido_id, producto);
+            }
+
+            mostrarSelectorProductos.value = false;
+            nuevasSelecciones.value = {};
+            emit('estado-actualizado');
+        } catch (error) {
+            console.error('Error al agregar productos:', error);
+        }
+
+    };
+    const agregarProducto = async (producto) => {
+        try {
+            const datos = {
+                producto_id: producto.producto_id,
+                cantidad: nuevasSelecciones.value[producto.producto_id],
+                precio_unitario: producto.precio_mayorista // Agregar esto
+            };
+
+            await pedidoStore.agregarProducto(props.pedido.pedido_id, datos);
+            emit('estado-actualizado');
+            mostrarSelectorProductos.value = false;
+            nuevasSelecciones.value = {}; // Limpiar selecciones después de agregar
+        } catch (error) {
+            console.error('Error al agregar producto:', error);
+        }
+    };
+
+    const calcularSubtotalCategoria = (productos) => {
+        return productos.reduce((total, detalle) => {
+            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
+            return total + (detalle.precio_unitario * cantidad);
+        }, 0);
+    };
+
+    const muestraCheckRecibido = computed(() => {
+        return ['PREPARADO', 'PREPARADO_MODIFICADO'].includes(props.pedido.estado);
+    });
+
+    const puedoModificarRecepcion = computed(() => {
+        return pedidoStore.rolEnPedido === 'ORIGEN' && muestraCheckRecibido.value;
+    });
+
+    const puedoModificarCantidadSegunRol = (rol) => {
+        if (!pedidoStore.rolEnPedido || !props.puedeModificar) return false;
+        return pedidoStore.rolEnPedido === rol;
+    };
 
     const detallesAgrupados = computed(() => {
         const grupos = {};
@@ -340,19 +363,84 @@
         return grupos;
     });
 
-    // Función para calcular subtotal por categoría
-    const calcularSubtotalCategoria = (productos) => {
-        return productos.reduce((total, detalle) => {
-            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
-            return total + (detalle.precio_unitario * cantidad);
-        }, 0);
+    const getModificacionStyle = (detalle) => {
+        const sucursal = props.pedido?.sucursales?.find(
+            s => s.sucursal_id === detalle.modificado_por_sucursal
+        );
+        return sucursal?.color ? {
+            backgroundColor: `${sucursal.color}15`,
+            borderLeft: `4px solid ${sucursal.color}`
+        } : 'bg-gray-50';
     };
 
+    const getModificadoBadgeStyle = (detalle) => {
+        const sucursal = props.pedido?.sucursales?.find(
+            s => s.sucursal_id === detalle.modificado_por_sucursal
+        );
+        return sucursal?.color ? {
+            backgroundColor: `${sucursal.color}20`,
+            color: sucursal.color
+        } : {
+            backgroundColor: 'rgb(243, 244, 246)',
+            color: 'rgb(107, 114, 128)'
+        };
+    };
 
-    const puedeModificarCantidades = computed(() => {
-        return props.puedeModificar &&
-            !['FINALIZADO', 'CANCELADO'].includes(props.pedido.estado);
-    });
+    const getSucursalNombre = (sucursalId) => {
+        return props.pedido?.sucursales?.find(s => s.sucursal_id === sucursalId)?.nombre || 'Desconocida';
+    };
+
+    const formatoMoneda = (valor) => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const hayCambios = (detalle) => {
+        if (pedidoStore.rolEnPedido === 'ORIGEN') {
+            return cantidadesSolicitadas.value[detalle.detalle_id] !== undefined &&
+                cantidadesSolicitadas.value[detalle.detalle_id] !== detalle.cantidad_solicitada;
+        }
+        if (pedidoStore.rolEnPedido === 'FABRICA') {
+            return cantidadesConfirmadas.value[detalle.detalle_id] !== undefined &&
+                cantidadesConfirmadas.value[detalle.detalle_id] !== detalle.cantidad_confirmada;
+        }
+        return false;
+    };
+
+    const guardarCambios = async (detalle) => {
+        try {
+            let cantidad;
+            if (pedidoStore.rolEnPedido === 'ORIGEN') {
+                cantidad = cantidadesSolicitadas.value[detalle.detalle_id];
+            } else if (pedidoStore.rolEnPedido === 'FABRICA') {
+                cantidad = cantidadesConfirmadas.value[detalle.detalle_id];
+            }
+
+            await pedidoStore.modificarCantidadProducto(props.pedido.pedido_id, detalle.detalle_id, cantidad);
+            emit('estado-actualizado');
+        } catch (error) {
+            console.error('Error al guardar cambios:', error);
+        }
+    };
+
+    const eliminarProducto = async (detalle) => {
+        if (!confirm('¿Está seguro que desea eliminar este producto?')) return;
+
+        try {
+            await pedidoStore.eliminarProducto(props.pedido.pedido_id, detalle.detalle_id);
+            emit('estado-actualizado');
+        } catch (error) {
+            console.error('Error al eliminar producto:', error);
+        }
+    };
+
+    const estaRecibido = (detalleId) => {
+        return productosRecibidos.value.get(detalleId) || false;
+    };
+
+    const busquedaProducto = ref('');
 
     const productosFiltrados = computed(() => {
         if (!productosDisponibles.value) return [];
@@ -370,211 +458,28 @@
             }));
     });
 
-    const getModificacionStyle = (detalle) => {
-        const sucursal = props.pedido?.sucursales?.find(
-            s => s.sucursal_id === detalle.modificado_por_sucursal
-        );
-
-        if (!sucursal?.color) return 'bg-gray-50';
-
-        return {
-            backgroundColor: `${sucursal.color}15`,
-            borderLeft: `4px solid ${sucursal.color}`
-        };
-    };
-
-    const getModificadoBadgeStyle = (detalle) => {
-        const sucursal = props.pedido?.sucursales?.find(
-            s => s.sucursal_id === detalle.modificado_por_sucursal
-        );
-
-        if (!sucursal?.color) return {
-            backgroundColor: 'rgb(243, 244, 246)',
-            color: 'rgb(107, 114, 128)'
-        };
-
-        return {
-            backgroundColor: `${sucursal.color}20`,
-            color: sucursal.color
-        };
-    };
-
-    const getSucursalNombre = (sucursalId) => {
-        const sucursal = props.pedido?.sucursales?.find(
-            s => s.sucursal_id === sucursalId
-        );
-        return sucursal?.nombre || 'Desconocida';
-    };
-    const estaRecibido = (detalleId) => {
-        return productosRecibidos.value.get(detalleId) || false;
-    };
     const marcarRecibido = async (detalle) => {
+        if (!puedoModificarRecepcion.value) return;
+
         try {
-            const currentState = productosRecibidos.value.get(detalle.detalle_id);
-            const nuevoEstado = !currentState;
-
-            const response = await axios.patch(
-                `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}/recibido`,
-                { recibido: nuevoEstado },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-
-            if (response.data.success) {
-                // Crear un nuevo Map para forzar la reactividad
-                const newMap = new Map(productosRecibidos.value);
-                newMap.set(detalle.detalle_id, response.data.estadoActual);
-                productosRecibidos.value = newMap;
-            }
+            const nuevoEstado = !estaRecibido(detalle.detalle_id);
+            await pedidoStore.marcarProductoRecibido(props.pedido.pedido_id, detalle.detalle_id, nuevoEstado);
+            const newMap = new Map(productosRecibidos.value);
+            newMap.set(detalle.detalle_id, nuevoEstado);
+            productosRecibidos.value = newMap;
         } catch (error) {
-            console.error('Error al marcar como recibido:', error.response?.data || error.message);
+            console.error('Error al marcar producto como recibido:', error);
         }
     };
-
-    const formatoMoneda = (valor) => {
-        return new Intl.NumberFormat('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
-    };
-
-    const actualizarCantidad = (detalleId, nuevaCantidad) => {
-        const cantidad = parseInt(nuevaCantidad) || 0;
-        cantidadesModificadas.value[detalleId] = cantidad;
-    };
-
-
-    const hayCambios = (detalle) => {
-        if (esSucursalOrigen.value) {
-            return cantidadesSolicitadas.value[detalle.detalle_id] !== undefined &&
-                cantidadesSolicitadas.value[detalle.detalle_id] !== detalle.cantidad_solicitada;
-        }
-
-        if (esSucursalDestino.value) {
-            return cantidadesConfirmadas.value[detalle.detalle_id] !== undefined &&
-                cantidadesConfirmadas.value[detalle.detalle_id] !== detalle.cantidad_confirmada;
-        }
-
-        return false;
-    };
-
-    const guardarCambios = async (detalle) => {
-        try {
-            let datosActualizacion = {
-                sucursal_id: authStore.user.sucursales[0]?.id
-            };
-
-            // Determinar qué campo actualizar según la sucursal
-            if (esSucursalOrigen.value) {
-                datosActualizacion.cantidad = cantidadesSolicitadas.value[detalle.detalle_id];
-                datosActualizacion.campo = 'cantidad_solicitada';
-            } else if (esSucursalDestino.value) {
-                datosActualizacion.cantidad = cantidadesConfirmadas.value[detalle.detalle_id];
-                datosActualizacion.campo = 'cantidad_confirmada';
-            }
-
-            const response = await axios.patch(
-                `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}`,
-                datosActualizacion,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-
-            if (response.data) {
-                await emit('modificacion', {
-                    detalle_id: detalle.detalle_id,
-                    cantidad_anterior: esSucursalOrigen.value ?
-                        detalle.cantidad_solicitada : detalle.cantidad_confirmada,
-                    cantidad_nueva: datosActualizacion.cantidad,
-                    sucursal_id: authStore.user.sucursales[0]?.id
-                });
-                emit('estado-actualizado');
-            }
-        } catch (error) {
-            console.error('Error al guardar cambios:', error);
-        }
-    };
-
-    // En DetalleProductos.vue, en la sección de methods
-    const eliminarProducto = async (detalle) => {
-        if (confirm('¿Está seguro que desea eliminar este producto?')) {
-            try {
-                const response = await axios.delete(
-                    `/api/pedidos/${props.pedido.pedido_id}/productos/${detalle.detalle_id}`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                        }
-                    }
-                );
-
-                console.log('Respuesta eliminación:', response.data);
-
-                // Actualizar estado local
-                if (esSucursalOrigen.value) {
-                    detalle.cantidad_solicitada = 0;
-                } else {
-                    detalle.cantidad_confirmada = 0;
-                }
-
-                // Emitir eventos
-                emit('estado-actualizado');
-            } catch (error) {
-                console.error('Error al eliminar producto:', error);
-                // Mostrar mensaje de error al usuario
-                alert('Error al eliminar el producto: ' + (error.response?.data?.message || error.message));
-            }
-        }
-    };
-
-    const hayProductosParaAgregar = computed(() => {
-        return Object.values(nuevasSelecciones.value).some(cantidad => cantidad > 0);
-    });
-
-    const agregarProductosSeleccionados = async () => {
-        try {
-            const productosParaAgregar = productosFiltrados.value.filter(
-                producto => nuevasSelecciones.value[producto.producto_id] > 0
-            );
-
-            for (const producto of productosParaAgregar) {
-                const datosProducto = {
-                    producto_id: producto.producto_id,
-                    cantidad: nuevasSelecciones.value[producto.producto_id],
-                    precio_unitario: producto.precio_mayorista,
-                    sucursal_id: authStore.user.sucursales[0]?.id
-                };
-
-                await pedidoStore.agregarProductoAPedido(props.pedido.pedido_id, datosProducto);
-            }
-
-            nuevasSelecciones.value = {};
-            mostrarSelectorProductos.value = false;
-            emit('estado-actualizado');
-
-        } catch (error) {
-            console.error('Error al agregar productos:', error);
-        }
-    };
-
-
     watch(mostrarSelectorProductos, (nuevoValor) => {
         if (nuevoValor) {
             cargarProductosDisponibles();
         }
     });
     onMounted(() => {
-        console.log('Inicializando productosRecibidos:');
         const initialState = new Map();
         props.detalles.forEach(detalle => {
             initialState.set(detalle.detalle_id, detalle.recibido === 1);
-            console.log(`Detalle ID: ${detalle.detalle_id}, Recibido: ${initialState.get(detalle.detalle_id)}`);
         });
         productosRecibidos.value = initialState;
     });
