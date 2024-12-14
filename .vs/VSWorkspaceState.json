@@ -2,15 +2,26 @@
   "ExpandedNodes": [
     "",
     "\\backend",
+<<<<<<< Updated upstream
     "\\backend\\middleware",
+=======
+>>>>>>> Stashed changes
     "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
     "\\la-avenida\\src\\components",
     "\\la-avenida\\src\\components\\pedidos",
+<<<<<<< Updated upstream
     "\\la-avenida\\src\\router",
     "\\la-avenida\\src\\views"
   ],
   "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\PedidoCard.vue",
+=======
+    "\\la-avenida\\src\\components\\pedidos\\nuevo",
+    "\\la-avenida\\src\\stores",
+    "\\la-avenida\\src\\utils"
+  ],
+  "SelectedNode": "\\la-avenida\\src\\stores\\pedidoStateMachine.js",
+>>>>>>> Stashed changes
   "PreviewInSolutionExplorer": false
 }

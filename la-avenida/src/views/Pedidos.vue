@@ -1,7 +1,14 @@
 ﻿<template>
+<<<<<<< Updated upstream
     <div>
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-avenida-black">Gestión de Pedidos</h2>
+=======
+    <div class="space-y-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-avenida-black">Gestion de Pedidos</h2>
+>>>>>>> Stashed changes
             <div class="flex items-center space-x-4">
                 <router-link to="/pedidos/nuevo"
                              class="px-4 py-2 bg-avenida-green text-white rounded hover:bg-avenida-green-light">
@@ -55,6 +62,43 @@
     const router = useRouter();
     const vistaActual = ref('kanban');
     const pedidoSeleccionado = ref(null);
+<<<<<<< Updated upstream
+=======
+    const kanbanRef = ref(null);
+    const sucursales = computed(() => authStore.user.sucursales || []);
+    const sucursalSeleccionada = ref(0);
+
+    const puedeCrearPedidos = computed(() => {
+        return ['ADMIN', 'DUEÑO', 'EMPLEADO'].includes(authStore.user.rol);
+    });
+
+    onMounted(() => {
+        const ultimaSucursal = localStorage.getItem('ultimaSucursalSeleccionada');
+        const sucursalInicial = ultimaSucursal && sucursales.value.find(s => s.id === parseInt(ultimaSucursal))
+            ? parseInt(ultimaSucursal)
+            : sucursales.value[0]?.id || 0;
+
+        sucursalSeleccionada.value = sucursalInicial;
+    });
+
+    watch(sucursalSeleccionada, (newValue) => {
+        if (newValue) {
+            localStorage.setItem('ultimaSucursalSeleccionada', newValue.toString());
+            pedidoStore.setContexto(newValue);
+        }
+    });
+
+    const mostrarDetallePedido = async (pedidoId) => {
+        try {
+            const response = await axios.get(`/api/pedidos/${pedidoId}`);
+            pedidoSeleccionado.value = response.data;
+        } catch (error) {
+            if (error.name !== 'CanceledError') {
+                console.error('Error al cargar pedido:', error);
+            }
+        }
+    };
+>>>>>>> Stashed changes
 
     const cerrarDetallePedido = () => {
         pedidoSeleccionado.value = null;

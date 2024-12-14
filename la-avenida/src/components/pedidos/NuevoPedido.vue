@@ -648,9 +648,30 @@
 
     // Inicialización
     onMounted(async () => {
+<<<<<<< Updated upstream
         await cargarSucursalesUsuario()
         pedido.value.fecha_entrega_requerida = obtenerProximaFechaEntrega()
         await cargarPreferencias()
         await cargarDatos()
     })
 </script>
+=======
+        const borradorId = router.currentRoute.value.query.borrador;
+        const sucursalUsuario = authStore.user.sucursales[0];
+
+        if (borradorId) {
+            await nuevoPedidoStore.inicializarPedido('BORRADOR', borradorId);
+        } else {
+            const sucursalInicial = authStore.user.sucursales.length === 1
+                ? sucursalUsuario.id
+                : localStorage.getItem('ultimaSucursalSeleccionada');
+
+            await nuevoPedidoStore.inicializarPedido('NUEVO', null, sucursalInicial);
+        }
+    });
+
+    onBeforeUnmount(() => {
+        nuevoPedidoStore.resetear();
+    });
+</script>
+>>>>>>> Stashed changes

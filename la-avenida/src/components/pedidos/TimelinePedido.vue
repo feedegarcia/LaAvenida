@@ -36,12 +36,22 @@
                 </div>
             </div>
 
+<<<<<<< Updated upstream
             <!-- Solo renderizar PedidoStateManager cuando tengamos datos -->
             <PedidoStateManager v-if="pedidoData && currentUser"
                                 :pedido="pedidoData"
                                 :user-role="currentUser.rol"
                                 :user-sucursales="currentUser.sucursales"
                                 @state-change="handleStateChange" />
+=======
+            <!-- Detalles y Estado -->
+            <div class="space-y-6">
+                <!-- PedidoStateManager -->
+                <PedidoStateManager v-if="pedidoStore.puedeVerPedido(pedidoData, authStore.user)"
+                                    :pedido="pedidoData"
+                                    :sucursal-activa="props.sucursalActiva"
+                                    @estado-actualizado="handleEstadoActualizado" />
+>>>>>>> Stashed changes
 
             <!-- Historial de cambios -->
             <div v-if="historialCambios.length > 0" class="mt-6">
@@ -74,6 +84,11 @@
         id: {
             type: Number,
             default: null
+        },
+        sucursalActiva: {
+            type: Number,
+            required: true,
+            validator: (value) => value > 0
         }
     });
 
@@ -83,6 +98,7 @@
     const loading = ref(false);
     const error = ref('');
 
+<<<<<<< Updated upstream
     const currentUser = computed(() => {
         const token = localStorage.getItem('token');
         if (!token) return null;
@@ -98,6 +114,10 @@
             return null;
         }
     });
+=======
+    const actualizarPedido = async () => {
+        await cargarPedido();
+>>>>>>> Stashed changes
 
     const formatearFecha = (fecha) => {
         if (!fecha) return '-';
@@ -138,6 +158,7 @@
         }
     };
 
+    
     const cargarPedido = async () => {
         try {
             loading.value = true;
@@ -154,6 +175,7 @@
                 const response = await axios.get(`/api/pedidos/${props.id}`);
                 console.log('Datos del pedido recibidos:', response.data);
                 pedidoData.value = response.data;
+                pedidoStore.setContexto(props.sucursalActiva, response.data);
                 await cargarHistorial(props.id);
             }
         } catch (error) {
@@ -187,8 +209,40 @@
             cargarPedido();
         }
     });
+    watch(() => props.sucursalActiva, (newSucursalId) => {
+        if (newSucursalId) {
+            pedidoStore.setContexto(newSucursalId, props.pedido);
+        }
+    });
 
+<<<<<<< Updated upstream
     onMounted(() => {
         cargarPedido();
+=======
+    // Lifecycle Hooks
+    onMounted(async () => {
+        if (!props.sucursalActiva) {
+            console.error('No hay sucursal activa');
+            return;
+        }
+
+        pedidoStore.setContexto(props.sucursalActiva);
+        await cargarPedido();
+
+        // Configurar intervalo de actualización automática
+        intervalId = setInterval(() => {
+            if (pedidoData.value?.pedido_id) {
+                cargarPedido();
+            }
+        }, 60000);
+    });
+
+    // Cleanup hook
+    onBeforeUnmount(() => {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+>>>>>>> Stashed changes
     });
 </script>

@@ -13,6 +13,7 @@ import Login from '../views/auth/Login.vue'
 import Users from '../views/admin/Users.vue'
 import Sucursales from '../views/admin/Sucursales.vue'
 import TimelinePedido from '../components/pedidos/TimelinePedido.vue'
+import Productos from '../views/admin/Productos.vue'
 import axios from 'axios'
 
 
@@ -29,15 +30,26 @@ const routes = [
         component: Users,
         meta: {
             requiresAuth: true,
-            requiresAdmin: true
+            allowedRoles: ['DUEÑO', 'ADMIN']
+        }
+    },
+    {
+        path: '/admin/productos',
+        name: 'Productos',
+        component: Productos,
+        meta: {
+            requiresAuth: true,
+            allowedRoles: ['DUEÑO', 'ADMIN', 'EMPLEADO']
         }
     },
     {
         path: '/pedidos/:id',
         name: 'DetallePedido',
         component: TimelinePedido,
-        props: route => ({ id: parseInt(route.params.id) }), // Pasamos solo el ID
-        meta: { requiresAuth: true }
+        props: route => ({
+            id: parseInt(route.params.id),
+            sucursalActiva: parseInt(localStorage.getItem('ultimaSucursalSeleccionada')) || undefined
+        })
     },
     {
         path: '/',
@@ -75,7 +87,7 @@ const routes = [
         component: Sucursales,
         meta: {
             requiresAuth: true,
-            requiresAdmin: true
+            allowedRoles: ['DUEÑO', 'ADMIN']
         }
     },
     {
@@ -121,22 +133,21 @@ router.beforeEach((to, from, next) => {
             return
         }
 
-        // Si la ruta requiere rol de admin
-        if (to.meta.requiresAdmin) {
-            try {
-                const decoded = jwtDecode(token)
-                if (decoded.rol !== 'ADMIN' && decoded.rol !== 'DUEÑO') {
-                    next('/')
-                    return
-                }
-            } catch (error) {
-                console.error('Error verificando rol:', error)
-                next('/login')
+        try {
+            const decoded = jwtDecode(token)
+
+            // Verificar roles permitidos
+            if (to.meta.allowedRoles && !to.meta.allowedRoles.includes(decoded.rol)) {
+                next('/')
                 return
             }
-        }
 
-        next()
+            next()
+        } catch (error) {
+            console.error('Error verificando rol:', error)
+            next('/login')
+            return
+        }
     } else if (to.path === '/login' && token && verifyToken(token)) {
         // Si intenta acceder al login con un token válido
         next('/')
