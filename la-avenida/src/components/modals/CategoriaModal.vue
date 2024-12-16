@@ -188,7 +188,7 @@ const guardarEdicionSubcategoria = async (categoria, subcategoria) => {
 }
 
 const eliminarCategoria = async (categoria) => {
-    if (!confirm(`¿Esta seguro de eliminar la categoria ${categoria.nombre}?`)) return
+    if (!confirm(` Esta seguro de eliminar la categoria ${categoria.nombre}?`)) return
     try {
         await productosStore.eliminarCategoria(categoria.categoria_id)
         await cargarCategorias()
@@ -198,7 +198,7 @@ const eliminarCategoria = async (categoria) => {
 }
 
 const eliminarSubcategoria = async (categoria, subcategoria) => {
-    if (!confirm(`¿Esta seguro de eliminar la subcategoria ${subcategoria.nombre}?`)) return
+    if (!confirm(` Esta seguro de eliminar la subcategoria ${subcategoria.nombre}?`)) return
     try {
         await productosStore.eliminarSubcategoria(subcategoria.subcategoria_id)
         await cargarCategorias()

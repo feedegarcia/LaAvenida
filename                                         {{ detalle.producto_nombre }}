@@ -1,0 +1,136 @@
+{{ detalle.cantidad_anterior }} → {{ detalle.cantidad_nueva }}
+                                    </li>
+                                </ul>
+                            </div>
+                            <p v-if="cambio.notas" class="mt-2 text-sm text-gray-700">
+                                {{ cambio.notas }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>
+
+<script setup>
+    import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'; 
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
+    import PedidoStateManager from './PedidoStateManager.vue';
+    import { formatearFecha, formatearFechaCompleta } from '@/utils/dateUtils';
+    import axios from '@/utils/axios-config';
+    let intervalId = null;  
+    const props = defineProps({
+        pedido: {
+            type: Object,
+            default: null
+        },
+        id: {
+            type: Number,
+            default: null
+        }
+    });
+
+    const emit = defineEmits(['estado-actualizado']);
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
+    const pedidoData = ref(null);
+    const historialCambios = ref([]);
+    const loading = ref(false);
+    const error = ref('');
+
+    const actualizarPedido = async () => {
+        console.log('Actualizando pedido...');
+        await cargarPedido();
+
+    };
+    // Computed Properties
+    const puedeVerTotales = computed(() => {
+        return ['ADMIN', 'DUEÑO'].includes(authStore.user.rol);
+    });
+
+    const totalPedido = computed(() => {
+        if (!pedidoData.value?.detalles) return 0;
+        return pedidoData.value.detalles.reduce((total, detalle) => {
+            const cantidad = detalle.cantidad_confirmada || detalle.cantidad_solicitada;
+            return total + (detalle.precio_unitario * cantidad);
+        }, 0);
+    });
+
+    // Methods
+    const formatoMoneda = (valor) => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const cargarPedido = async () => {
+        try {
+            loading.value = true;
+            if (props.id) {
+                const response = await axios.get(`/api/pedidos/${props.id}`);
+                pedidoData.value = response.data;
+                await cargarHistorial(props.id);
+            }
+        } catch (err) {
+            console.error('Error cargando pedido:', err);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    const cargarHistorial = async (pedidoId) => {
+        try {
+            const response = await axios.get(`/api/pedidos/${pedidoId}/historial`);
+            historialCambios.value = response.data.map(cambio => ({
+                ...cambio,
+                cambios: typeof cambio.cambios === 'string' ?
+                    JSON.parse(cambio.cambios) : cambio.cambios
+            }));
+            console.log('Historial cargado:', historialCambios.value);
+        } catch (err) {
+            console.error('Error cargando historial:', err);
+        }
+    };
+
+    const handleEstadoActualizado = async () => {
+        await cargarPedido();
+    };
+
+    // Watchers
+    watch(() => props.pedido, (newPedido) => {
+        if (newPedido) {
+            pedidoData.value = newPedido;
+            cargarHistorial(newPedido.pedido_id);
+        }
+    });
+
+    watch(() => props.id, (newId) => {
+        if (newId) {
+            cargarPedido();
+        }
+    });
+
+    // Lifecycle Hooks
+    onMounted(() => {
+
+        cargarPedido();
+
+        // Configurar intervalo de actualización automática
+        intervalId = setInterval(() => {
+            if (pedidoData.value?.pedido_id) {
+                cargarPedido();
+            }
+        }, 60000);
+    });
+
+    // Cleanup hook
+    onBeforeUnmount(() => {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+    });
+</script>

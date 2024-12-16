@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth';
 
 export const useNuevoPedidoStore = defineStore('nuevoPedido', {
     state: () => ({
+        sucursalActual: null,
         pedido: {
             fecha_entrega_requerida: null,
             sucursal_origen: null,
@@ -15,7 +16,7 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
             fabricas: {},
             sinTac: [],
             varios: []
-        }, 
+        },
         cargando: false,
         error: null,
         modo: 'NUEVO',
@@ -43,13 +44,16 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
     },
 
     actions: {
+        setSucursalActual(sucursalId) {
+            this.sucursalActual = sucursalId;
+            this.pedido.sucursal_origen = sucursalId;
+        },
         async inicializarPedido(modo = 'NUEVO', borrador = null, sucursalInicial = null) {
             try {
                 this.cargando = true;
                 this.modo = modo;
                 this.error = null;
 
-                // Si es nuevo pedido, inicializar con valores por defecto
                 if (modo === 'NUEVO') {
                     const fechaInicial = this.obtenerProximaFechaEntrega();
 
@@ -61,7 +65,6 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                         detalles: {}
                     };
 
-                    // Si tenemos sucursal inicial, obtenemos sucursal destino y cargamos productos
                     if (sucursalInicial) {
                         this.obtenerSucursalDestinoDefault();
                         try {
@@ -73,7 +76,6 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                         }
                     }
                 }
-                // Si es borrador, cargar datos del borrador
                 else if (borrador && modo === 'BORRADOR') {
                     const response = await axios.get(`/api/pedidos/${borrador}`);
                     const pedidoBorrador = response.data;

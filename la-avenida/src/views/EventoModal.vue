@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <Dialog as="div" :open="show" @close="closeModal" class="relative z-50">
         <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
 
@@ -66,7 +66,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Descripción
+                                Descripcion
                             </label>
                             <textarea v-model="form.descripcion"
                                       rows="3"

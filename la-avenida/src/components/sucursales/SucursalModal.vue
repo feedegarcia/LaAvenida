@@ -1,4 +1,3 @@
-﻿
 <template>
     <div v-if="show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white rounded-lg p-6 w-full max-w-xl">
@@ -21,18 +20,18 @@
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
                 </div>
 
-                <!-- Dirección -->
+                <!-- Direccion -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Dirección</label>
+                    <label class="block text-sm font-medium text-gray-700">Direccion</label>
                     <input v-model="formData.direccion"
                            type="text"
                            required
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
                 </div>
 
-                <!-- Teléfono -->
+                <!-- Telefono -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Teléfono</label>
+                    <label class="block text-sm font-medium text-gray-700">Telefono</label>
                     <input v-model="formData.telefono"
                            type="text"
                            required
@@ -45,14 +44,19 @@
                     <select v-model="formData.tipo"
                             required
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="FABRICA_VENTA">Fábrica y Venta</option>
+                        <option value="FABRICA_VENTA">Fabrica y Venta</option>
                         <option value="SOLO_VENTA">Solo Venta</option>
                     </select>
                 </div>
 
-                <!-- Horario de atención -->
+                <!-- Color -->
+                <ColorPicker v-model="formData.color">
+                    Color de identificacion
+                </ColorPicker>
+
+                <!-- Horario de atencion -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Horario de Atención</label>
+                    <label class="block text-sm font-medium text-gray-700">Horario de Atencion</label>
                     <input v-model="formData.horario_atencion"
                            type="text"
                            placeholder="Ej: 9:00 a 20:00"
@@ -78,16 +82,17 @@
 </template>
 
 <script setup>
-    import { ref, watch } from 'vue'
-    import axios from 'axios'
+    import { ref, watch } from 'vue';
+    import axios from 'axios';
+    import ColorPicker from '../shared/ColorPicker.vue';
 
     const props = defineProps({
         show: Boolean,
         editingSucursal: Object
-    })
+    });
 
-    const emit = defineEmits(['close', 'saved'])
-    const loading = ref(false)
+    const emit = defineEmits(['close', 'saved']);
+    const loading = ref(false);
 
     const formData = ref({
         nombre: '',
@@ -95,11 +100,15 @@
         telefono: '',
         tipo: 'SOLO_VENTA',
         horario_atencion: '',
-    })
+        color: '#FFFFFF'
+    });
 
     watch(() => props.editingSucursal, (sucursal) => {
         if (sucursal) {
-            formData.value = { ...sucursal }
+            formData.value = {
+                ...sucursal,
+                color: sucursal.color || '#FFFFFF'
+            };
         } else {
             formData.value = {
                 nombre: '',
@@ -107,35 +116,36 @@
                 telefono: '',
                 tipo: 'SOLO_VENTA',
                 horario_atencion: '',
-            }
+                color: '#FFFFFF'
+            };
         }
-    })
+    });
 
     const guardarSucursal = async () => {
         try {
-            loading.value = true
+            loading.value = true;
             const url = props.editingSucursal
                 ? `http://localhost:3000/api/sucursales/${props.editingSucursal.sucursal_id}`
-                : 'http://localhost:3000/api/sucursales'
+                : 'http://localhost:3000/api/sucursales';
 
-            const method = props.editingSucursal ? 'patch' : 'post'
+            const method = props.editingSucursal ? 'patch' : 'post';
 
             await axios[method](url, formData.value, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            })
+            });
 
-            emit('saved')
-            cerrarModal()
+            emit('saved');
+            cerrarModal();
         } catch (error) {
-            console.error('Error guardando sucursal:', error)
+            console.error('Error guardando sucursal:', error);
         } finally {
-            loading.value = false
+            loading.value = false;
         }
-    }
+    };
 
     const cerrarModal = () => {
-        emit('close')
-    }
+        emit('close');
+    };
 </script>

@@ -125,7 +125,7 @@ const productosController = {
                     [precio_venta, id]
                 );
             } else {
-                // Actualización completa para ADMIN y DUEÑO
+                // Actualizaci n completa para ADMIN y DUE O
                 await connection.query(
                     `UPDATE producto SET 
                         codigo = ?, nombre = ?, subcategoria_id = ?,
@@ -190,18 +190,18 @@ const productosController = {
         }
     },
 
-    // Obtener categorías
+    // Obtener categor as
     getCategorias: async (req, res) => {
         try {
             const [rows] = await pool.query('SELECT * FROM categoria_producto WHERE activo = 1');
             res.json(rows);
         } catch (error) {
-            console.error('Error al obtener categorías:', error);
+            console.error('Error al obtener categor as:', error);
             res.status(500).json({ error: error.message });
         }
     },
 
-    // Obtener subcategorías por categoría
+    // Obtener subcategor as por categor a
     getSubcategorias: async (req, res) => {
         const { categoriaId } = req.params;
         try {
@@ -211,7 +211,7 @@ const productosController = {
             );
             res.json(rows);
         } catch (error) {
-            console.error('Error al obtener subcategorías:', error);
+            console.error('Error al obtener subcategor as:', error);
             res.status(500).json({ error: error.message });
         }
     }

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="min-h-screen flex items-center justify-center bg-gray-100">
         <div class="max-w-md w-full">
             <div class="bg-white rounded-lg shadow-lg p-8">
@@ -67,7 +67,7 @@
     const password = ref('')
     const error = ref('')
     const loading = ref(false)
-    const debug = ref(null) // Para información de depuración
+    const debug = ref(null) // Para informacion de depuracion
 
     // Limpiar cualquier token antiguo al cargar el componente
     localStorage.removeItem('token')
@@ -94,7 +94,7 @@
             })
 
             if (!response.data.token) {
-                throw new Error('No se recibió token de autenticación')
+                throw new Error('No se recibio token de autenticacion')
             }
 
             localStorage.setItem('token', response.data.token)
@@ -104,7 +104,7 @@
         } catch (err) {
             console.error('Error completo:', err)
 
-            // Información detallada del error para depuración
+            // Informacion detallada del error para depuracion
             debug.value = {
                 status: err.response?.status,
                 statusText: err.response?.statusText,
@@ -113,7 +113,7 @@
             }
 
             error.value = err.response?.data?.message ||
-                'Error al iniciar sesión. Por favor, verifica tus credenciales.'
+                'Error al iniciar sesion. Por favor, verifica tus credenciales.'
         } finally {
             loading.value = false
         }

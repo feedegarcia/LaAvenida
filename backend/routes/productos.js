@@ -1,12 +1,8 @@
-
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
-<<<<<<< Updated upstream
-=======
 const jwt = require('jsonwebtoken');
 const { authenticateToken } = require('../middleware/auth');
->>>>>>> Stashed changes
 
 const checkRole = (roles) => {
     return (req, res, next) => {
@@ -21,45 +17,16 @@ const checkRole = (roles) => {
 
 // Rutas de pedidos
 router.get('/pedido', async (req, res) => {
+    console.log('Request recibido - params:', req.query);
     try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decodedToken = jwt.verify(token, 'secret_key');
 
-        const [rows] = await pool.query(`
-    SELECT DISTINCT
-        p.producto_id,
-        p.nombre,
-        p.codigo,
-        p.precio_mayorista,
-        p.es_sin_tac,
-        p.requiere_refrigeracion,
-        p.unidades_por_paquete,
-        op.tipo as tipo_origen,
-        op.sucursal_fabricante_id,
-        op.lugar_pedido_defecto,
-        COALESCE(op.sucursal_fabricante_id, op.lugar_pedido_defecto) as sucursal_pedido,
-        s.nombre as sucursal_nombre,
-        s.tipo as sucursal_tipo,
-        cp.categoria_id,
-        cp.nombre as categoria_nombre,
-        sp.subcategoria_id,
-        sp.nombre as subcategoria_nombre,
-        COALESCE(stk.cantidad, 0) as stock
-    FROM PRODUCTO p
-    JOIN origen_producto op ON p.origen_id = op.origen_id
-    LEFT JOIN sucursal s ON COALESCE(op.sucursal_fabricante_id, op.lugar_pedido_defecto) = s.sucursal_id
-    LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
-    JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
-    JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
-    WHERE p.activo = TRUE
-    AND (
-        (op.tipo = 'ELABORACION_PROPIA' AND s.tipo = 'FABRICA_VENTA')
-        OR op.tipo = 'TERCEROS'
-        OR p.es_sin_tac = 1
-    )
-`);
+        const sucursalSeleccionada = parseInt(req.query.sucursal_id);
+        if (!sucursalSeleccionada) {
+            return res.status(400).json({ error: 'Debe seleccionar una sucursal' });
+        }
 
-<<<<<<< Updated upstream
-        
-=======
         const query = `
             SELECT DISTINCT
                 p.*, 
@@ -97,7 +64,6 @@ router.get('/pedido', async (req, res) => {
         `;
 
         const [rows] = await pool.query(query, [sucursalSeleccionada, sucursalSeleccionada]);
->>>>>>> Stashed changes
 
         const agrupados = {
             fabricas: {},
@@ -110,14 +76,13 @@ router.get('/pedido', async (req, res) => {
         }
 
         rows.forEach(producto => {
-
-
             if (producto.es_sin_tac) {
                 if (!agrupados.sinTac.find(p => p.producto_id === producto.producto_id)) {
                     agrupados.sinTac.push(producto);
                 }
             } else if (producto.tipo_origen === 'ELABORACION_PROPIA') {
                 const sucursalId = producto.sucursal_pedido;
+
                 if (!agrupados.fabricas[sucursalId]) {
                     agrupados.fabricas[sucursalId] = {
                         nombre: producto.sucursal_nombre,
@@ -132,12 +97,13 @@ router.get('/pedido', async (req, res) => {
                     };
                 }
 
-                // Verificar si el producto ya existe antes de agregarlo
-                const productoExistente = agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id].productos
+                const productoExistente = agrupados.fabricas[sucursalId]
+                    .subcategorias[producto.subcategoria_id].productos
                     .find(p => p.producto_id === producto.producto_id);
 
                 if (!productoExistente) {
-                    agrupados.fabricas[sucursalId].subcategorias[producto.subcategoria_id].productos.push(producto);
+                    agrupados.fabricas[sucursalId]
+                        .subcategorias[producto.subcategoria_id].productos.push(producto);
                 }
             } else if (!agrupados.varios.find(p => p.producto_id === producto.producto_id)) {
                 agrupados.varios.push(producto);
@@ -145,19 +111,15 @@ router.get('/pedido', async (req, res) => {
         });
 
         return res.json(agrupados);
-
     } catch (error) {
         console.error('Error en /pedido:', error);
         return res.status(500).json({
-            message: error.message,
+            message: 'Error al obtener productos',
+            error: error.message,
             stack: error.stack
         });
     }
 });
-<<<<<<< Updated upstream
-
-module.exports = router;
-=======
 // Rutas de gestion de productos
 router.get('/pedido/:pedidoId/disponibles', async (req, res) => {
     try {
@@ -202,7 +164,7 @@ router.get('/pedido/:pedidoId/disponibles', async (req, res) => {
     }
 });
 
-router.get('/admin', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']), async (req, res) => {
+router.get('/admin', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -223,7 +185,7 @@ router.get('/admin', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']
             ORDER BY cp.nombre, sp.nombre, p.nombre
         `);
 
-        // Convertir explícitamente los valores a booleanos
+        // Convertir expl citamente los valores a booleanos
         const productos = rows.map(p => ({
             ...p,
             activo: Boolean(p.activo),
@@ -239,7 +201,7 @@ router.get('/admin', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']
     }
 });
 
-router.post('/', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.post('/', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -291,7 +253,7 @@ router.post('/', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, r
     }
 });
 
-router.put('/:id', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']), async (req, res) => {
+router.put('/:id', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -359,7 +321,7 @@ router.put('/:id', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']),
     }
 });
 
-router.patch('/subcategoria/:id/precios', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.patch('/subcategoria/:id/precios', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -435,7 +397,7 @@ router.patch('/subcategoria/:id/precios', authenticateToken, checkRole(['DUEÑO',
     }
 });
 
-router.patch('/:id/estado', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.patch('/:id/estado', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
         const { activo } = req.body;
@@ -452,7 +414,7 @@ router.patch('/:id/estado', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), as
     }
 });
 
-router.patch('/:id/visibilidad', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.patch('/:id/visibilidad', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
         const { visible_web } = req.body;
@@ -469,7 +431,7 @@ router.patch('/:id/visibilidad', authenticateToken, checkRole(['DUEÑO', 'ADMIN']
     }
 });
 
-router.patch('/subcategoria/:id/visibilidad', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.patch('/subcategoria/:id/visibilidad', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -502,7 +464,7 @@ router.get('/categorias', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/categorias', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.post('/categorias', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -527,7 +489,7 @@ router.post('/categorias', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), asy
     }
 });
 
-router.put('/categorias/:id', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.put('/categorias/:id', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -550,7 +512,7 @@ router.put('/categorias/:id', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), 
     }
 });
 
-router.put('/subcategorias/:id', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.put('/subcategorias/:id', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -583,7 +545,7 @@ router.get('/unidades-medida', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/subcategorias', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
+router.post('/subcategorias', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -622,4 +584,3 @@ router.get('/subcategorias/:categoriaId', authenticateToken, async (req, res) =>
 });
 
 module.exports = router;
->>>>>>> Stashed changes

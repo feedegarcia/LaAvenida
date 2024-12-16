@@ -1,68 +1,42 @@
-<<<<<<< Updated upstream
-// src/stores/pedidoStateMachine.js
-=======
-// Parte 1: state y getters del pedidoStateMachine.js
->>>>>>> Stashed changes
-
 import { defineStore } from 'pinia';
+import axios from '@/utils/axios-config';
 
 export const usePedidoStore = defineStore('pedido', {
     state: () => ({
-<<<<<<< Updated upstream
-=======
         sucursalActiva: null,
         rolEnPedido: null,
         pedidoBloqueado: false,
         ultimaModificacion: null,
 
->>>>>>> Stashed changes
         estadosPedido: {
-            BORRADOR: {
-                siguientesEstados: ['EN_FABRICA', 'CANCELADO'],
-                permisos: ['CREAR_PEDIDO', 'CANCELAR_PEDIDO'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Borrador',
-                color: 'gray',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    CANCELAR: 'ORIGEN',
-                    VER: 'ORIGEN'
-                }
-            },
             EN_FABRICA: {
-                siguientesEstados: ['PREPARADO', 'EN_FABRICA_MODIFICADO', 'CANCELADO'],
-                permisos: ['MODIFICAR_PEDIDO', 'CANCELAR_PEDIDO'],
-                roles: ['FABRICA', 'ADMIN', 'DUEÑO'],
-                label: 'En Fábrica',
+                label: 'En Fabrica',
                 color: 'blue',
-                permisosEspeciales: {
-                    MODIFICAR: 'DESTINO',
-                    CANCELAR: 'ORIGEN',
-                    VER: 'AMBOS'
+                siguientesEstados: ['PREPARADO', 'EN_FABRICA_MODIFICADO', 'PREPARADO_MODIFICADO'],
+                acciones: {
+                    ORIGEN: ['MODIFICAR', 'AGREGAR', 'ELIMINAR'],
+                    FABRICA: ['PREPARAR', 'MODIFICAR', 'AGREGAR', 'ELIMINAR']
+                },
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA']
                 }
             },
             EN_FABRICA_MODIFICADO: {
-                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
-                permisos: ['ACEPTAR_MODIFICACION', 'REPORTAR_DIFERENCIAS'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Modificado en Fábrica',
-                color: 'orange',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
+                label: 'En Fabrica Modificado',
+                color: 'yellow',
+                siguientesEstados: ['PREPARADO', 'PREPARADO_MODIFICADO'],
+                acciones: {
+                    ORIGEN: ['MODIFICAR', 'AGREGAR', 'ELIMINAR'],
+                    FABRICA: ['PREPARAR', 'MODIFICAR', 'AGREGAR', 'ELIMINAR']
+                },
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA']
                 }
             },
             PREPARADO: {
-                siguientesEstados: ['RECIBIDO', 'RECIBIDO_CON_DIFERENCIAS'],
-                permisos: ['CONFIRMAR_RECEPCION'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
                 label: 'Preparado',
-<<<<<<< Updated upstream
-                color: 'yellow',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
-=======
                 color: 'green',
                 siguientesEstados: ['FINALIZADO', 'RECIBIDO_CON_DIFERENCIAS'], // Cambiado: de RECIBIDO a FINALIZADO
                 acciones: {
@@ -85,188 +59,114 @@ export const usePedidoStore = defineStore('pedido', {
                 permisos: {
                     ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
                     modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA']
->>>>>>> Stashed changes
                 }
             },
             RECIBIDO_CON_DIFERENCIAS: {
-                siguientesEstados: ['RECIBIDO', 'PREPARADO_MODIFICADO'],
-                permisos: ['ACEPTAR_DIFERENCIAS', 'RECHAZAR_DIFERENCIAS'],
-                roles: ['FABRICA', 'ADMIN', 'DUEÑO'],
                 label: 'Con Diferencias',
                 color: 'red',
-                permisosEspeciales: {
-                    MODIFICAR: 'DESTINO',
-                    VER: 'AMBOS'
+                siguientesEstados: ['FINALIZADO', 'EN_FABRICA_MODIFICADO'],
+                acciones: {
+                    ORIGEN: ['VISUALIZAR'],
+                    FABRICA: ['APROBAR', 'RECHAZAR']
+                },
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'SUCURSAL_FABRICA'
                 }
             },
-            PREPARADO_MODIFICADO: {
-                siguientesEstados: ['RECIBIDO'],
-                permisos: ['CONFIRMAR_RECEPCION'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Preparado con Cambios',
-                color: 'purple',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
-                }
-            },
-<<<<<<< Updated upstream
-            RECIBIDO: {
-                siguientesEstados: ['FINALIZADO'],
-                permisos: ['FINALIZAR_PEDIDO'],
-                roles: ['EMPLEADO', 'ADMIN', 'DUEÑO'],
-                label: 'Recibido',
-                color: 'green',
-                permisosEspeciales: {
-                    MODIFICAR: 'ORIGEN',
-                    VER: 'AMBOS'
-                }
-            },
-=======
->>>>>>> Stashed changes
             FINALIZADO: {
-                siguientesEstados: [],
-                permisos: [],
-                roles: ['ADMIN', 'DUEÑO'],
                 label: 'Finalizado',
-                color: 'emerald',
-                permisosEspeciales: {
-                    VER: 'AMBOS'
+                color: 'green',
+                siguientesEstados: [],
+                acciones: {
+                    ORIGEN: ['VISUALIZAR'],
+                    FABRICA: ['VISUALIZAR']
+                },
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: 'ADMIN'
                 }
             },
-            CANCELADO: {
-                siguientesEstados: [],
-                permisos: [],
-                roles: ['ADMIN', 'DUEÑO'],
-                label: 'Cancelado',
-                color: 'red',
-                permisosEspeciales: {
-                    VER: 'AMBOS'
+            BORRADOR: {
+                label: 'Borrador',
+                color: 'gray',
+                siguientesEstados: ['EN_FABRICA'],
+                acciones: {
+                    ORIGEN: ['MODIFICAR', 'AGREGAR', 'ELIMINAR', 'CONFIRMAR'],
+                    FABRICA: ['MODIFICAR', 'AGREGAR', 'ELIMINAR', 'CONFIRMAR']
+                },
+                permisos: {
+                    ver: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA'],
+                    modificar: ['SUCURSAL_ORIGEN', 'SUCURSAL_FABRICA']
                 }
             }
         }
     }),
 
-    actions: {
-        puedeTransicionarA(estadoActual, estadoDestino, rol) {
-            const estado = this.estadosPedido[estadoActual];
-            if (!estado) return false;
-            return estado.siguientesEstados.includes(estadoDestino) &&
-                this.estadosPedido[estadoDestino].roles.includes(rol);
+    getters: {
+        obtenerEtiquetaEstado: (state) => (estado) => {
+            return state.estadosPedido[estado]?.label || estado;
         },
 
-        obtenerAccionesPermitidas(estadoActual, rol) {
-            const estado = this.estadosPedido[estadoActual];
-            if (!estado) return [];
-            return estado.siguientesEstados.filter(e =>
-                this.estadosPedido[e].roles.includes(rol)
-            );
+        obtenerColorEstado: (state) => (estado) => {
+            return state.estadosPedido[estado]?.color || 'gray';
         },
 
-<<<<<<< Updated upstream
-        puedeVerPedido(pedido, usuario) {
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
-
-            // Admin y Dueño siempre pueden ver
-=======
         puedeVerPedido: (state) => (pedido, usuario) => {
             if (!pedido || !usuario) return false;
->>>>>>> Stashed changes
             if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
 
-            const tipoPermiso = estado.permisosEspeciales?.VER;
-            switch (tipoPermiso) {
-                case 'ORIGEN':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-                case 'DESTINO':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
-                case 'AMBOS':
-                    return usuario.sucursales.some(s =>
-                        s.id === pedido.sucursal_origen || s.id === pedido.sucursal_destino
-                    );
-                default:
-                    return false;
-            }
+            const estadoConfig = state.estadosPedido[pedido.estado];
+            if (!estadoConfig?.permisos?.ver) return false;
+
+            return usuario.sucursales.some(sucursal => {
+                const esSucursalOrigen = sucursal.id === pedido.sucursal_origen;
+                const esSucursalFabrica = sucursal.id === pedido.sucursal_destino;
+
+                return estadoConfig.permisos.ver.includes('SUCURSAL_ORIGEN') && esSucursalOrigen ||
+                    estadoConfig.permisos.ver.includes('SUCURSAL_FABRICA') && esSucursalFabrica;
+            });
         },
 
-        puedeModificarPedido(pedido, usuario) {
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
+        puedeModificarPedido: (state) => (pedido, usuario) => {
+            if (!pedido || !usuario) return false;
 
-<<<<<<< Updated upstream
-            // Verificar rol
-            if (!estado.roles.includes(usuario.rol)) return false;
-
-            // Admin y Dueño tienen permisos especiales
-            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
-
-            // Verificar permisos de sucursal
-            const tipoPermiso = estado.permisosEspeciales?.MODIFICAR;
-            switch (tipoPermiso) {
-                case 'ORIGEN':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-                case 'DESTINO':
-                    return usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
-                case 'AMBOS':
-                    return usuario.sucursales.some(s =>
-                        s.id === pedido.sucursal_origen || s.id === pedido.sucursal_destino
-                    );
-                default:
-                    return false;
-            }
-        },
-
-        puedeCancelarPedido(pedido, usuario) {
-            // Si es admin o dueño, siempre puede cancelar hasta EN_FABRICA
-            if (['ADMIN', 'DUEÑO'].includes(usuario.rol) &&
-                ['BORRADOR', 'EN_FABRICA'].includes(pedido.estado)) {
-                return true;
-=======
             // Nuevo: Verificar si el pedido está finalizado
             if (pedido.estado === 'FINALIZADO') {
                 return usuario.rol === 'ADMIN';
->>>>>>> Stashed changes
             }
 
-            const estado = this.estadosPedido[pedido.estado];
-            if (!estado) return false;
+            if (['ADMIN', 'DUEÑO'].includes(usuario.rol)) return true;
 
-            // Verificar si el estado permite cancelación
-            if (!estado.siguientesEstados.includes('CANCELADO')) return false;
+            const estadoConfig = state.estadosPedido[pedido.estado];
+            if (!estadoConfig?.permisos?.modificar) return false;
 
-            // Verificar permiso especial de cancelación
-            const tipoPermiso = estado.permisosEspeciales?.CANCELAR;
-            if (tipoPermiso === 'ORIGEN') {
-                return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
-            }
+            const permisos = Array.isArray(estadoConfig.permisos.modificar)
+                ? estadoConfig.permisos.modificar
+                : [estadoConfig.permisos.modificar];
 
-            return false;
+            return permisos.some(permiso => {
+                if (permiso === 'SUCURSAL_ORIGEN') {
+                    return usuario.sucursales.some(s => s.id === pedido.sucursal_origen);
+                }
+                if (permiso === 'SUCURSAL_FABRICA') {
+                    return usuario.sucursales.some(s => s.id === pedido.sucursal_destino);
+                }
+                return false;
+            });
         },
 
-        obtenerEtiquetaEstado(estado) {
-            return this.estadosPedido[estado]?.label || estado;
+        puedeCancelarPedido: (state) => (pedido, usuario) => {
+            if (!pedido || !usuario) return false;
+            if (usuario.rol !== 'ADMIN') return false;
+            return !['FINALIZADO', 'CANCELADO'].includes(pedido.estado);
         },
 
-        obtenerColorEstado(estado) {
-            return this.estadosPedido[estado]?.color || 'gray';
-        },
-
-        tienePermiso(estado, permiso, rol) {
-            const estadoConfig = this.estadosPedido[estado];
-            if (!estadoConfig) return false;
-            return estadoConfig.permisos.includes(permiso) &&
-                estadoConfig.roles.includes(rol);
+        puedeVerTotales: (state) => (pedido, usuario) => {
+            return ['ADMIN', 'DUEÑO'].includes(usuario.rol);
         }
     },
-    // Parte 2: actions del pedidoStateMachine.js
 
-<<<<<<< Updated upstream
-    getters: {
-        todosLosEstados: (state) => Object.keys(state.estadosPedido),
-
-        estadosActivos: (state) =>
-=======
     actions: {
         setContexto(sucursalId, pedido) {
             console.log('Estableciendo contexto:', {
@@ -362,11 +262,8 @@ export const usePedidoStore = defineStore('pedido', {
 
         async obtenerAccionesPermitidas(estado, usuario, pedido) {
             // Sucursal origen en EN_FABRICA
-            if (this.rolEnPedido === 'ORIGEN' && estado === 'EN_FABRICA') {
-                return [];
-            }
-
             if (this.rolEnPedido === 'FABRICA' && ['EN_FABRICA', 'EN_FABRICA_MODIFICADO'].includes(estado)) {
+                // Solo verificamos si la fábrica hizo modificaciones
                 const hayModificacionesFabrica = await this.verificarModificacionesSucursalDestino(pedido.pedido_id);
 
                 return [{
@@ -374,6 +271,18 @@ export const usePedidoStore = defineStore('pedido', {
                     estado: hayModificacionesFabrica ? 'PREPARADO_MODIFICADO' : 'PREPARADO',
                     habilitado: true,
                     label: hayModificacionesFabrica ? 'Preparar con Modificaciones' : 'Preparar'
+                }];
+            }
+
+            // Sucursal fabrica en EN_FABRICA/EN_FABRICA_MODIFICADO
+            if (this.rolEnPedido === 'FABRICA' && ['EN_FABRICA', 'EN_FABRICA_MODIFICADO'].includes(estado)) {
+                const hayModificaciones = await this.verificarModificacionesSucursalDestino(pedido.pedido_id);
+
+                return [{
+                    accion: 'PREPARAR',
+                    estado: hayModificaciones ? 'PREPARADO_MODIFICADO' : 'PREPARADO',
+                    habilitado: true,
+                    label: hayModificaciones ? 'Preparado con Modificaciones' : 'Preparado'
                 }];
             }
 
@@ -465,4 +374,3 @@ export const usePedidoStore = defineStore('pedido', {
         }
     }
 });
->>>>>>> Stashed changes

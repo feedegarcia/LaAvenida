@@ -1,4 +1,5 @@
-﻿<template>
+﻿
+<template>
     <div class="fixed top-0 left-0 right-0 z-50">
         <!-- Navbar principal -->
         <nav class="bg-avenida-black/95 backdrop-blur-sm border-b border-white/10">
@@ -98,7 +99,7 @@
                 { to: '/', text: 'DASHBOARD' },
                 { to: '/admin/users', text: 'USUARIOS' },
                 { to: '/admin/sucursales', text: 'SUCURSALES' },
-            { to: '/calendario', text: 'CALENDARIO' }
+                { to: '/calendario', text: 'CALENDARIO' }
             );
         }
 

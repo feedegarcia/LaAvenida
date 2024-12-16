@@ -10,7 +10,7 @@ router.post('/login', async (req, res) => {
         const { email, password } = req.body;
         console.log('Intento de login:', { email });
 
-        // Primero, buscar el usuario básico
+        // Primero, buscar el usuario basico
         const [users] = await pool.query(`
             SELECT u.*, r.nombre as rol 
             FROM USUARIO u 
@@ -96,7 +96,7 @@ router.post('/register', async (req, res) => {
         );
 
         if (existingUsers.length > 0) {
-            return res.status(400).json({ message: 'El email ya está registrado' });
+            return res.status(400).json({ message: 'El email ya esta registrado' });
         }
 
         // Generar hash de la contraseña

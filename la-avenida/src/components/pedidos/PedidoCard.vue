@@ -1,4 +1,3 @@
-﻿<!-- components/pedidos/PedidoCard.vue -->
 <template>
     <div class="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
          @click="verDetalle">
@@ -6,13 +5,18 @@
             <div>
                 <span class="text-sm font-medium">#{{ pedido.pedido_id }}</span>
                 <h4 class="font-medium">{{ pedido.destino }}</h4>
-                <!-- Badge de modificación pendiente -->
                 <span v-if="highlight"
                       class="inline-block px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full mt-1">
-                    Modificación pendiente
+                    Modificacion pendiente
                 </span>
             </div>
-            <EstadoPedido :estado="pedido.estado" />
+            <span :class="{
+                'px-2 py-1 rounded-full text-xs': true,
+                [`bg-${getEstadoColor()}-100`]: true,
+                [`text-${getEstadoColor()}-800`]: true
+            }">
+                {{ getEstadoLabel() }}
+            </span>
         </div>
 
         <div class="text-sm text-gray-600 space-y-1">
@@ -26,11 +30,11 @@
             </div>
         </div>
 
-        <div v-if="esRolAdministrativo"
+        <div v-if="puedeVerCostos && pedido.total"
              class="mt-3 pt-3 border-t border-gray-100">
             <div class="flex justify-between text-sm">
                 <span class="font-medium">Total:</span>
-                <span class="font-medium">$ {{ formatoMoneda(pedido.total_pedido) }}</span>
+                <span class="font-medium">$ {{ formatoMoneda(pedido.total || 0) }}</span>
             </div>
         </div>
     </div>
@@ -39,10 +43,8 @@
 <script setup>
     import { computed } from 'vue';
     import { useRouter } from 'vue-router';
-    import { jwtDecode } from 'jwt-decode';
-    import EstadoPedido from './EstadoPedido.vue';
-
-    const router = useRouter();
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
 
     const props = defineProps({
         pedido: {
@@ -55,17 +57,13 @@
         }
     });
 
-    // Obtener rol del usuario del token
-    const userRole = computed(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return null;
-        const decoded = jwtDecode(token);
-        return decoded.rol;
-    });
+    const router = useRouter();
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
 
-    const esRolAdministrativo = computed(() =>
-        userRole.value === 'ADMIN' || userRole.value === 'DUEÑO'
-    );
+    const puedeVerCostos = computed(() => {
+        return pedidoStore.puedeVerTotales(props.pedido, authStore.user);
+    });
 
     const formatoFecha = (fecha) => {
         return new Date(fecha).toLocaleDateString('es-AR', {
@@ -82,7 +80,19 @@
         }).format(valor);
     };
 
+    const getEstadoColor = () => {
+        const estadoConfig = pedidoStore.estadosPedido[props.pedido.estado];
+        return estadoConfig?.color || 'gray';
+    };
+
+    const getEstadoLabel = () => {
+        const estadoConfig = pedidoStore.estadosPedido[props.pedido.estado];
+        return estadoConfig?.label || props.pedido.estado;
+    };
+
     const verDetalle = () => {
-        router.push(`/pedidos/${props.pedido.pedido_id}`);
+        if (pedidoStore.puedeVerPedido(props.pedido, authStore.user)) {
+            router.push(`/pedidos/${props.pedido.pedido_id}`);
+        }
     };
 </script>

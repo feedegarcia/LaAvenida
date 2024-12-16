@@ -1,6 +1,6 @@
-﻿<template>
+<template>
     <div class="max-w-4xl mx-auto p-4">
-        <!-- Contador de próximo feriado -->
+        <!-- Contador de proximo feriado -->
         <NextFeriadoCounter />
 
         <!-- Filtros -->
@@ -35,14 +35,14 @@
 
             <!-- Grilla del calendario -->
             <div class="grid grid-cols-7 gap-px bg-gray-200">
-                <!-- Días de la semana -->
-                <div v-for="day in ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']"
+                <!-- Dias de la semana -->
+                <div v-for="day in ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']"
                      :key="day"
                      class="bg-gray-50 p-2 text-center text-sm font-medium">
                     {{ day }}
                 </div>
 
-                <!-- Días del mes -->
+                <!-- Dias del mes -->
                 <div v-for="date in getDaysInMonth(currentDate)"
                      :key="date.toISOString()"
                      class="bg-white p-2 min-h-[80px] relative group">
@@ -59,7 +59,7 @@
                         </button>
                     </div>
 
-                    <!-- Eventos del día -->
+                    <!-- Eventos del dia -->
                     <div v-for="evento in getEventosDelDia(date)"
                          :key="evento.evento_id"
                          class="text-xs mt-1 p-1 rounded flex justify-between items-center"
@@ -73,7 +73,7 @@
                         </div>
                     </div>
 
-                    <!-- Botón para agregar evento -->
+                    <!-- Boton para agregar evento -->
                     <button class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-gray-100 rounded-full hover:bg-gray-200"
                             @click="openEventModal(date)">
                         <Plus class="w-4 h-4 text-gray-600" />
@@ -136,14 +136,14 @@
                                 </div>
                             </div>
 
-                            <!-- Checkbox para múltiples días -->
+                            <!-- Checkbox para multiples dias -->
                             <div class="flex items-center space-x-2">
                                 <input type="checkbox"
                                        id="multipleDays"
                                        v-model="isMultipleDays"
                                        class="rounded border-gray-300 text-emerald-500">
                                 <label for="multipleDays" class="text-sm text-gray-600">
-                                    Evento de múltiples días
+                                    Evento de multiples dias
                                 </label>
                             </div>
 
@@ -170,10 +170,10 @@
                                        class="w-full rounded-md border-gray-300 shadow-sm">
                             </div>
 
-                            <!-- Descripción -->
+                            <!-- Descripcion -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Descripción
+                                    Descripcion
                                 </label>
                                 <textarea v-model="eventForm.descripcion"
                                           rows="3"
@@ -197,17 +197,17 @@
             </div>
         </Dialog>
 
-        <!-- Modal de confirmación de eliminación -->
+        <!-- Modal de confirmacion de eliminacion -->
         <Dialog :open="isDeleteModalOpen" @close="closeDeleteModal" class="relative z-50">
             <div class="fixed inset-0 bg-black/30" />
             <div class="fixed inset-0 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
                     <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 text-left align-middle shadow-xl transition-all">
                         <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900 mb-4">
-                            Confirmar Eliminación
+                            Confirmar Eliminacion
                         </DialogTitle>
                         <p class="text-sm text-gray-500">
-                            ¿Está seguro que desea eliminar este evento?
+                            ¿Esta seguro que desea eliminar este evento?
                         </p>
                         <div class="mt-4 flex justify-end space-x-3">
                             <button @click="closeDeleteModal"
@@ -401,7 +401,7 @@
             return;
         }
 
-        if (!confirm('¿Está seguro que desea eliminar este tipo de evento? Si hay eventos asociados, no se podrá eliminar.')) {
+        if (!confirm('¿Esta seguro que desea eliminar este tipo de evento? Si hay eventos asociados, no se podra eliminar.')) {
             return;
         }
 
@@ -443,7 +443,7 @@
         }
     };
 
-    // Inicialización
+    // Inicializacion
     onMounted(async () => {
         await Promise.all([
             cargarEventos(),

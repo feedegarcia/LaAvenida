@@ -1,30 +1,16 @@
 const jwt = require('jsonwebtoken');
 
-<<<<<<< Updated upstream
-=======
 // Middleware principal de autenticacion
->>>>>>> Stashed changes
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-<<<<<<< Updated upstream
-        return res.status(401).json({ message: 'No se proporcionÃ³ token de acceso' });
-=======
         return res.status(401).json({ message: 'No se proporciono token de acceso' });
->>>>>>> Stashed changes
     }
 
     try {
-        // Usamos la misma clave que en auth.js
         const decoded = jwt.verify(token, 'secret_key');
-<<<<<<< Updated upstream
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return res.status(403).json({ message: 'Token invÃ¡lido' });
-=======
         req.user = {
             ...decoded,
             sucursal_id: decoded.sucursales[0]?.id
@@ -33,7 +19,6 @@ const authenticateToken = (req, res, next) => {
     } catch (error) {
         console.error('Error de autenticacion:', error);
         return res.status(403).json({ message: 'Token invalido' });
->>>>>>> Stashed changes
     }
 };
 

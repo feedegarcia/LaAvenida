@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg">
         <div class="flex items-center space-x-2">
             <input type="checkbox"

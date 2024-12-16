@@ -194,7 +194,7 @@ const getPedidoById = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // Obtener pedido y detalles básicos
+        // Obtener pedido y detalles b sicos
         const [pedido] = await connection.query(`
             SELECT 
                 p.*,
@@ -355,13 +355,12 @@ const createPedido = async (req, res) => {
 };
 
 
-// Función modificada para manejar cambios de estado
 const updatePedidoEstado = async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { estado, sucursalId } = req.body; // Obtener sucursalId del body
+        const { estado, sucursalId } = req.body; 
         const { id: pedidoId } = req.params;
         const usuarioId = req.user.id;
 
@@ -369,7 +368,7 @@ const updatePedidoEstado = async (req, res) => {
             estado,
             pedidoId,
             usuarioId,
-            sucursalRecibida: sucursalId, // Log de la sucursal recibida
+            sucursalRecibida: sucursalId,
             body: req.body
         });
 
@@ -383,13 +382,18 @@ const updatePedidoEstado = async (req, res) => {
             throw new Error('Pedido no encontrado');
         }
 
-        // Validar transición usando la sucursal recibida del frontend
         const transicionValida = esTransicionValida(
             pedidoActual[0].estado,
             estado,
-            sucursalId, // Usar la sucursal recibida
+            sucursalId,
             pedidoActual[0]
         );
+
+        console.log('Validación de transición:', {
+            esValida: transicionValida,
+            estadoActual: pedidoActual[0].estado,
+            nuevoEstado: estado
+        });
 
         if (!transicionValida) {
             throw new Error(`Transición de estado no permitida para sucursal ${sucursalId}`);
@@ -484,15 +488,15 @@ const compararCambios = async (req, res) => {
         // Si es sucursal destino
         if (sucursalId === pedido.sucursal_destino) {
             hayModificaciones = detalles.some(detalle => {
-                // Si cantidad_confirmada es null, no hay modificación
+                // Si cantidad_confirmada es null, no hay modificaci n
                 if (detalle.cantidad_confirmada === null) return false;
 
-                // Hay modificación solo si la cantidad confirmada es diferente a la solicitada
+                // Hay modificaci n solo si la cantidad confirmada es diferente a la solicitada
                 return detalle.cantidad_confirmada !== detalle.cantidad_solicitada;
             });
         }
 
-        console.log('Resultado verificación detallado:', {
+        console.log('Resultado verificaci n detallado:', {
             pedidoId,
             sucursalId,
             hayModificaciones,
@@ -517,7 +521,7 @@ const compararCambios = async (req, res) => {
 const marcarProductoRecibido = async (req, res) => {
     const connection = await pool.getConnection();
     try {
-        console.log('Recibiendo petición de marcar:', {
+        console.log('Recibiendo petici n de marcar:', {
             params: req.params,
             body: req.body
         });
@@ -528,17 +532,17 @@ const marcarProductoRecibido = async (req, res) => {
         const { recibido } = req.body;
         const sucursalId = req.user.sucursal_id;
 
-        // Convertir explícitamente a 1 o 0 para MySQL
+        // Convertir expl citamente a 1 o 0 para MySQL
         const valorRecibido = recibido ? 1 : 0;
 
-        // Verificar que es un pedido válido y el usuario tiene permisos
+        // Verificar que es un pedido v lido y el usuario tiene permisos
         const [[pedido]] = await connection.query(
             'SELECT estado, sucursal_origen FROM pedido WHERE pedido_id = ?',
             [pedidoId]
         );
 
         if (!pedido || !['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)) {
-            throw new Error('Pedido no válido o en estado incorrecto');
+            throw new Error('Pedido no v lido o en estado incorrecto');
         }
 
         console.log('Ejecutando update con:', {
@@ -556,18 +560,18 @@ const marcarProductoRecibido = async (req, res) => {
             [valorRecibido, detalleId, pedidoId]
         );
 
-        // Verificar el cambio inmediatamente después
+        // Verificar el cambio inmediatamente despu s
         const [[actualizado]] = await connection.query(
             'SELECT detalle_id, recibido FROM detalle_pedido WHERE detalle_id = ?',
             [detalleId]
         );
 
-        console.log('Estado después de actualizar:', actualizado);
+        console.log('Estado despu s de actualizar:', actualizado);
 
         await connection.commit();
         res.json({
             success: true,
-            message: 'Estado de recepción actualizado',
+            message: 'Estado de recepci n actualizado',
             estadoActual: actualizado.recibido === 1
         });
     } catch (error) {
@@ -679,7 +683,6 @@ const agregarProductosAPedido = async (req, res) => {
     }
 };
 
-
 function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
     console.log('Validando transición:', {
         estadoActual,
@@ -728,6 +731,7 @@ function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
 
     return esValida;
 }
+
 const modificarCantidadProducto = async (req, res) => {
     const connection = await pool.getConnection();
     try {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <Dialog :open="show"
             @close="closeModal"
             class="relative z-[60]">
@@ -81,7 +81,7 @@
         try {
             loading.value = true;
 
-            // Validación en el frontend
+            // Validacion en el frontend
             if (!formData.value.nombre?.trim()) {
                 throw new Error('El nombre es requerido');
             }

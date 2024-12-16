@@ -1,0 +1,149 @@
+{{ obtenerCantidadOriginal(detalleId) }} → {{ cantidad }}
+                </div>
+            </div>
+
+            <!-- Notas -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Notas
+                </label>
+                <textarea v-model="notas"
+                          rows="3"
+                          required
+                          class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Explique el motivo de los cambios..."></textarea>
+            </div>
+
+            <!-- Error -->
+            <div v-if="error"
+                 class="text-red-600 bg-red-50 p-3 rounded-lg">
+                {{ error }}
+            </div>
+
+            <!-- Botones -->
+            <div class="flex justify-end space-x-3 pt-4">
+                <button @click="cerrarModal"
+                        class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button @click="enviarSolicitud"
+                        :disabled="!puedeEnviar"
+                        class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50">
+                    Enviar Solicitud
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+    import { ref, computed } from 'vue';
+    import { X, Plus, Minus } from 'lucide-vue-next';
+    import { useAuthStore } from '@/stores/auth';
+    import { usePedidoStore } from '@/stores/pedidoStateMachine';
+    import axios from '@/utils/axios-config';
+
+    const props = defineProps({
+        pedido: {
+            type: Object,
+            required: true
+        },
+        detalles: {
+            type: Array,
+            required: true
+        }
+    });
+
+    const emit = defineEmits(['close', 'solicitud-enviada']);
+
+    const authStore = useAuthStore();
+    const pedidoStore = usePedidoStore();
+
+    const cantidades = ref({});
+    const notas = ref('');
+    const error = ref('');
+
+    // Computed
+    const cantidadesModificadas = computed(() => {
+        return Object.entries(cantidades.value)
+            .reduce((acc, [detalleId, cantidad]) => {
+                const original = obtenerCantidadOriginal(detalleId);
+                if (cantidad !== original) {
+                    acc[detalleId] = cantidad;
+                }
+                return acc;
+            }, {});
+    });
+
+    const hayCambios = computed(() => {
+        return Object.keys(cantidadesModificadas.value).length > 0;
+    });
+
+    const puedeEnviar = computed(() => {
+        return hayCambios.value && notas.value.trim().length > 0;
+    });
+
+    // Methods
+    const formatoMoneda = (valor) => {
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const obtenerCantidadOriginal = (detalleId) => {
+        const detalle = props.detalles.find(d => d.detalle_id === parseInt(detalleId));
+        return detalle?.cantidad_solicitada || 0;
+    };
+
+    const obtenerNombreProducto = (detalleId) => {
+        const detalle = props.detalles.find(d => d.detalle_id === parseInt(detalleId));
+        return detalle?.producto_nombre || '';
+    };
+
+    const incrementarCantidad = (detalle) => {
+        if (!cantidades.value[detalle.detalle_id]) {
+            cantidades.value[detalle.detalle_id] = detalle.cantidad_solicitada;
+        }
+        cantidades.value[detalle.detalle_id]++;
+    };
+
+    const decrementarCantidad = (detalle) => {
+        if (!cantidades.value[detalle.detalle_id]) {
+            cantidades.value[detalle.detalle_id] = detalle.cantidad_solicitada;
+        }
+        if (cantidades.value[detalle.detalle_id] > 0) {
+            cantidades.value[detalle.detalle_id]--;
+        }
+    };
+
+    const cerrarModal = () => {
+        emit('close');
+    };
+
+    const enviarSolicitud = async () => {
+        if (!puedeEnviar.value) return;
+
+        try {
+            const cambios = Object.entries(cantidadesModificadas.value)
+                .map(([detalleId, cantidadNueva]) => ({
+                    detalle_id: parseInt(detalleId),
+                    cantidad_anterior: obtenerCantidadOriginal(detalleId),
+                    cantidad_nueva: cantidadNueva
+                }));
+
+            await axios.post(`/api/pedidos/${props.pedido.pedido_id}/solicitud-modificacion`, {
+                solicitud: {
+                    solicitado_por: authStore.user.id,
+                    cambios,
+                    notas: notas.value
+                }
+            });
+
+            emit('solicitud-enviada');
+            cerrarModal();
+        } catch (err) {
+            error.value = err.response?.data?.message || 'Error al enviar la solicitud';
+        }
+    };
+</script>
