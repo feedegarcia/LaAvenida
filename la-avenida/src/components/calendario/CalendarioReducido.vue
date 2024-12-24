@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white rounded-lg shadow p-4">
+    <div class="bg-white rounded-lg shadow-lg p-4">
         <div class="grid grid-cols-6 gap-2">
             <!-- Proximos 11 dias -->
             <div v-for="date in proximosDias"
@@ -28,8 +28,8 @@
                     <div v-if="eventosStore.tieneEventos(date)"
                          class="mt-1">
                         <div class="text-xs text-center px-1 py-0.5 bg-[#4C9F38]/10 rounded truncate"
-                             :style="{ color: '#4C9F38' }">
-                            {{ eventosStore.eventosPorFecha(date)[0].nombre }}
+                             :style="{ color: eventosStore.eventosPorFecha(date)[0]?.color || '#4C9F38' }">
+                            {{ eventosStore.eventosPorFecha(date)[0]?.nombre || 'Evento' }}
                             <span v-if="eventosStore.eventosPorFecha(date).length > 1">
                                 +{{ eventosStore.eventosPorFecha(date).length - 1 }}
                             </span>
@@ -43,12 +43,13 @@
                     <div class="bg-white shadow-lg rounded-lg p-3 text-sm border border-gray-200">
                         <div v-for="evento in eventosStore.eventosPorFecha(date)"
                              :key="evento.evento_id"
-                             class="mb-2 last:mb-0">
-                            <div class="font-medium" :style="{ color: '#4C9F38' }">
-                                {{ evento.nombre }}
-                            </div>
-                            <div class="text-xs text-gray-500" v-if="evento.descripcion">
-                                {{ evento.descripcion }}
+                             class="mb-2 last:mb-0 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: evento.color || '#4C9F38' }"></div>
+                            <div>
+                                <div class="font-medium">{{ evento.nombre }}</div>
+                                <div class="text-xs text-gray-500" v-if="evento.descripcion">
+                                    {{ evento.descripcion }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -59,7 +60,7 @@
 </template>
 
 <script setup>
-    import { computed } from 'vue';
+    import { ref, computed, watch, onMounted } from 'vue';
     import { useEventosStore } from '@/stores/eventos';
 
     const props = defineProps({
@@ -79,7 +80,7 @@
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
 
-        for (let i = 0; i < 11; i++) {
+        for (let i = 0; i < 12; i++) {
             const fecha = new Date(hoy);
             fecha.setDate(hoy.getDate() + i);
             dias.push(fecha);
@@ -117,4 +118,15 @@
         if (!esFechaValida(fecha)) return;
         emit('update:modelValue', fecha);
     };
+
+    // Watch para eventos
+    watch(proximosDias, async () => {
+        if (!eventosStore.eventos.length) {
+            await eventosStore.cargarEventos();
+        }
+    }, { immediate: true });
+
+    onMounted(async () => {
+        await eventosStore.cargarEventos();
+    });
 </script>

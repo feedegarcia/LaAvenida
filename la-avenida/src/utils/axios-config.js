@@ -1,35 +1,35 @@
-// src/utils/axios-config.js
-
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-// Crear instancia de axios con configuracion base
 const axiosInstance = axios.create({
-    baseURL: 'http://localhost:3000'
+    baseURL: 'http://localhost:3000',
+    headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json; charset=utf-8'
+    }
 });
 
-// Mapa para almacenar controllers activos
 const activeControllers = new Map();
 
-// Interceptor para agregar el token a todas las peticiones
 axiosInstance.interceptors.request.use(
     config => {
-        // Cancelar request anterior con la misma URL si existe
         const controller = activeControllers.get(config.url);
         if (controller) {
             controller.abort();
         }
 
-        // Crear nuevo controller para esta request
         const newController = new AbortController();
         config.signal = newController.signal;
         activeControllers.set(config.url, newController);
 
-        // Agregar token de autorizacion
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Asegurar que siempre enviamos y recibimos en UTF-8
+        config.headers['Content-Type'] = 'application/json; charset=utf-8';
+        config.headers['Accept'] = 'application/json; charset=utf-8';
 
         return config;
     },
@@ -38,20 +38,16 @@ axiosInstance.interceptors.request.use(
     }
 );
 
-// Interceptor para manejar respuestas y errores
 axiosInstance.interceptors.response.use(
     response => {
-        // Limpiar controller al completar exitosamente
         activeControllers.delete(response.config.url);
         return response;
     },
     error => {
-        // Limpiar controller en caso de error
         if (error.config) {
             activeControllers.delete(error.config.url);
         }
 
-        // Manejar error de token expirado
         if (error.response?.status === 401 || error.response?.status === 403) {
             const token = localStorage.getItem('token');
             if (token) {
@@ -70,7 +66,6 @@ axiosInstance.interceptors.response.use(
             }
         }
 
-        // No rechazar errores de abort ya que son esperados
         if (error.name === 'AbortError') {
             return new Promise(() => { });
         }

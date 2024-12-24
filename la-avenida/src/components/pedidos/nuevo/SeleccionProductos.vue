@@ -138,8 +138,5 @@
         ordenSubcategorias.value.set(key, ordenActual + (direccion === 'arriba' ? -1 : 1));
     };
 
-    const formatearNombre = (nombre) => {
-        const palabras = nombre.split(' ');
-        return palabras.length > 1 ? palabras.slice(1).join(' ') : nombre;
-    };
+    const formatearNombre = (nombre) => nombre;
 </script>

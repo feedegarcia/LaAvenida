@@ -15,55 +15,120 @@ const checkRole = (roles) => {
     };
 };
 
-// Rutas de pedidos
-router.get('/pedido', async (req, res) => {
-    console.log('Request recibido - params:', req.query);
+// Ruta principal de pedidos
+router.get('/pedido', authenticateToken, async (req, res) => {
+    console.log('Request recibido en /pedido:', {
+        headers: req.headers,
+        user: req.user,
+        query: req.query
+    });
     try {
+        // Validar token
+        if (!req.headers.authorization) {
+            console.log('No se recibió token de autorización');
+            return res.status(401).json({ error: 'No autorizado' });
+        }
+
         const token = req.headers.authorization.split(' ')[1];
         const decodedToken = jwt.verify(token, 'secret_key');
+
+        console.log('Token decodificado:', {
+            userId: decodedToken.id,
+            rol: decodedToken.rol,
+            email: decodedToken.email,
+            sucursales: decodedToken.sucursales
+        });
 
         const sucursalSeleccionada = parseInt(req.query.sucursal_id);
         if (!sucursalSeleccionada) {
             return res.status(400).json({ error: 'Debe seleccionar una sucursal' });
         }
 
-        const query = `
-            SELECT DISTINCT
-                p.*, 
-                op.tipo as tipo_origen,
-                op.sucursal_fabricante_id,
-                op.lugar_pedido_defecto,
-                s.nombre as sucursal_nombre,
-                s.tipo as sucursal_tipo,
-                cp.nombre as categoria_nombre,
-                sp.nombre as subcategoria_nombre,
-                COALESCE(stk.cantidad, 0) as stock,
-                COALESCE(op.sucursal_fabricante_id, op.lugar_pedido_defecto) as sucursal_pedido,
-                (
-                    SELECT MAX(dp.cantidad_solicitada)
-                    FROM detalle_pedido dp
-                    JOIN pedido ped ON dp.pedido_id = ped.pedido_id
-                    WHERE dp.producto_id = p.producto_id
-                    AND ped.sucursal_origen = ?
-                    ORDER BY ped.fecha_pedido DESC
-                    LIMIT 1
-                ) as ultimo_pedido
-            FROM PRODUCTO p
-            JOIN origen_producto op ON p.origen_id = op.origen_id
-            LEFT JOIN sucursal s ON op.sucursal_fabricante_id = s.sucursal_id
-            LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
-            JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
-            JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
-            WHERE p.activo = TRUE
-            AND (
-                op.sucursal_fabricante_id != ? 
-                OR op.tipo = 'TERCEROS'
-                OR p.es_sin_tac = 1
-            )
-            ORDER BY cp.nombre, sp.nombre, p.nombre
-        `;
+        // Verificar que el usuario tiene acceso a la sucursal
+        const tieneAcceso = req.user.sucursales.some(s => s.id === sucursalSeleccionada);
+        if (!tieneAcceso) {
+            console.log('Usuario no tiene acceso a la sucursal seleccionada:', {
+                usuario: req.user.email,
+                sucursales: req.user.sucursales,
+                sucursalSolicitada: sucursalSeleccionada
+            });
+            return res.status(403).json({ error: 'No tiene acceso a esta sucursal' });
+        }
 
-        const [rows] = await pool.query(query, [sucursalSeleccionada, sucursalSeleccionada]);
+        // Obtener el tipo de sucursal
+        const [tipoSucursal] = await pool.query(
+            'SELECT tipo FROM sucursal WHERE sucursal_id = ?',
+            [sucursalSeleccionada]
+        );
+
+        if (!tipoSucursal.length) {
+            console.log('No se encontró la sucursal');
+            return res.status(404).json({ error: 'Sucursal no encontrada' });
+        }
+
+        console.log('Tipo de sucursal:', {
+            sucursalId: sucursalSeleccionada,
+            tipo: tipoSucursal[0]?.tipo,
+            usuario: decodedToken.email
+        });
+
+        // Consulta modificada
+        const query = `
+    SELECT DISTINCT
+        p.*, 
+        op.tipo as tipo_origen,
+        op.sucursal_fabricante_id,
+        s.nombre as sucursal_nombre,
+        cp.nombre as categoria_nombre,
+        sp.nombre as subcategoria_nombre,
+        COALESCE(stk.cantidad, 0) as stock,
+        COALESCE(op.sucursal_fabricante_id, op.lugar_pedido_defecto) as sucursal_pedido,
+        suc.tipo as tipo_sucursal,
+        (
+            SELECT MAX(dp.cantidad_solicitada)
+            FROM detalle_pedido dp
+            JOIN pedido ped ON dp.pedido_id = ped.pedido_id
+            WHERE dp.producto_id = p.producto_id
+            AND ped.sucursal_origen = ?
+            ORDER BY ped.fecha_pedido DESC
+            LIMIT 1
+        ) as ultimo_pedido
+    FROM PRODUCTO p
+    JOIN origen_producto op ON p.origen_id = op.origen_id
+    LEFT JOIN sucursal s ON op.sucursal_fabricante_id = s.sucursal_id
+    LEFT JOIN STOCK stk ON p.producto_id = stk.producto_id
+    JOIN subcategoria_producto sp ON p.subcategoria_id = sp.subcategoria_id
+    JOIN categoria_producto cp ON sp.categoria_id = cp.categoria_id
+    JOIN sucursal suc ON suc.sucursal_id = ?
+    WHERE p.activo = TRUE
+    AND (
+        suc.tipo = 'SOLO_VENTA'
+        OR (suc.tipo = 'FABRICA_VENTA' AND (
+            op.tipo = 'TERCEROS'
+            OR p.es_sin_tac = 1
+            OR op.sucursal_fabricante_id != ?
+        ))
+    )
+    ORDER BY cp.nombre, sp.nombre, p.nombre
+`;
+
+        // Ejecutar la consulta
+        const [rows] = await pool.query(query, [
+            sucursalSeleccionada,  // para ultimo_pedido
+            sucursalSeleccionada,  // para el JOIN con sucursal
+            sucursalSeleccionada   // para la comparación en FABRICA_VENTA
+        ]);
+
+        // Log después de obtener los resultados
+        console.log('Detalles de productos encontrados:', {
+            cantidadTotal: rows.length,
+            productos: rows.map(p => ({
+                nombre: p.nombre,
+                tipo_origen: p.tipo_origen,
+                fabrica: p.sucursal_nombre,
+                sucursal_pedido: p.sucursal_pedido
+            }))
+        });
 
         const agrupados = {
             fabricas: {},
@@ -120,7 +185,8 @@ router.get('/pedido', async (req, res) => {
         });
     }
 });
-// Rutas de gestion de productos
+
+// Rutas de gestión de productos
 router.get('/pedido/:pedidoId/disponibles', async (req, res) => {
     try {
         const [pedido] = await pool.query(
@@ -164,7 +230,8 @@ router.get('/pedido/:pedidoId/disponibles', async (req, res) => {
     }
 });
 
-router.get('/admin', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']), async (req, res) => {
+// Ruta para obtener productos en modo admin
+router.get('/admin', authenticateToken, checkRole(['DUEÑO', 'ADMIN', 'EMPLEADO']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -185,7 +252,6 @@ router.get('/admin', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']
             ORDER BY cp.nombre, sp.nombre, p.nombre
         `);
 
-        // Convertir expl citamente los valores a booleanos
         const productos = rows.map(p => ({
             ...p,
             activo: Boolean(p.activo),
@@ -201,12 +267,12 @@ router.get('/admin', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']
     }
 });
 
-router.post('/', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, res) => {
+// Ruta para crear nuevo producto
+router.post('/', authenticateToken, checkRole(['DUEÑO', 'ADMIN']), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        // Primero crear el origen
         const [origenResult] = await connection.query(
             `INSERT INTO origen_producto (
                 tipo, sucursal_fabricante_id, lugar_pedido_defecto
@@ -214,11 +280,10 @@ router.post('/', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, r
             [
                 req.body.tipo_origen,
                 req.body.sucursal_fabricante_id,
-                req.body.sucursal_fabricante_id // Por defecto mismo valor
+                req.body.sucursal_fabricante_id
             ]
         );
 
-        // Luego crear el producto con el origen_id
         const [result] = await connection.query(
             `INSERT INTO producto (
                 codigo, nombre, subcategoria_id, precio_venta, 
@@ -252,6 +317,7 @@ router.post('/', authenticateToken, checkRole(['DUE O', 'ADMIN']), async (req, r
         connection.release();
     }
 });
+
 
 router.put('/:id', authenticateToken, checkRole(['DUE O', 'ADMIN', 'EMPLEADO']), async (req, res) => {
     const connection = await pool.getConnection();

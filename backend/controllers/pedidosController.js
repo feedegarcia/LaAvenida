@@ -360,19 +360,13 @@ const updatePedidoEstado = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { estado, sucursalId } = req.body; 
+        const { estado, sucursalId } = req.body;
         const { id: pedidoId } = req.params;
         const usuarioId = req.user.id;
 
-        console.log('Datos recibidos:', {
-            estado,
-            pedidoId,
-            usuarioId,
-            sucursalRecibida: sucursalId,
-            body: req.body
-        });
+        console.log('Datos de actualización:', { pedidoId, estado, sucursalId });
 
-        // Obtener estado actual del pedido
+        // Obtener pedido actual
         const [pedidoActual] = await connection.query(
             'SELECT estado, sucursal_origen, sucursal_destino FROM pedido WHERE pedido_id = ?',
             [pedidoId]
@@ -382,21 +376,99 @@ const updatePedidoEstado = async (req, res) => {
             throw new Error('Pedido no encontrado');
         }
 
-        const transicionValida = esTransicionValida(
-            pedidoActual[0].estado,
-            estado,
-            sucursalId,
-            pedidoActual[0]
-        );
+        // Verificar si hay cambios pendientes cuando se intenta finalizar desde PREPARADO
+        if (pedidoActual[0].estado === 'PREPARADO' && estado === 'FINALIZADO') {
+            const tieneCambios = await tieneCambiosPendientes(pedidoId, connection);
+            if (tieneCambios) {
+                throw new Error('No se puede finalizar el pedido porque tiene cambios pendientes');
+            }
+        }
 
-        console.log('Validación de transición:', {
-            esValida: transicionValida,
-            estadoActual: pedidoActual[0].estado,
-            nuevoEstado: estado
-        });
-
-        if (!transicionValida) {
+        // Validar transición
+        if (!esTransicionValida(pedidoActual[0].estado, estado, sucursalId, pedidoActual[0])) {
             throw new Error(`Transición de estado no permitida para sucursal ${sucursalId}`);
+        }
+
+        // Si el pedido pasa a FINALIZADO
+        if (estado === 'FINALIZADO') {
+            console.log('Iniciando actualización de stock para pedido:', pedidoId);
+
+            // 1. Marcar todos los productos como recibidos
+            await connection.query(`
+        UPDATE detalle_pedido 
+        SET recibido = 1,
+            fecha_modificacion = CURRENT_TIMESTAMP
+        WHERE pedido_id = ?
+    `, [pedidoId]);
+
+            // 2. Obtener detalles del pedido para actualizar stock
+            const [detalles] = await connection.query(`
+        SELECT 
+            dp.producto_id,
+            dp.cantidad_confirmada,
+            dp.cantidad_solicitada,
+            COALESCE(dp.cantidad_confirmada, dp.cantidad_solicitada) as cantidad_final,
+            p.nombre as producto_nombre
+        FROM detalle_pedido dp
+        JOIN producto p ON dp.producto_id = p.producto_id
+        WHERE dp.pedido_id = ?
+    `, [pedidoId]);
+
+            console.log('Detalles completos del pedido para actualización de stock:', JSON.stringify(detalles, null, 2));
+
+            // 3. Actualizar stock por cada producto
+            for (const detalle of detalles) {
+                console.log(`Procesando producto ${detalle.producto_nombre}:`, {
+                    producto_id: detalle.producto_id,
+                    cantidad_confirmada: detalle.cantidad_confirmada,
+                    cantidad_solicitada: detalle.cantidad_solicitada,
+                    cantidad_final: detalle.cantidad_final
+                });
+
+                // Verificar stock actual antes de actualizar
+                const [stockActual] = await connection.query(
+                    'SELECT stock_id, cantidad FROM stock WHERE producto_id = ? AND sucursal_id = ?',
+                    [detalle.producto_id, pedidoActual[0].sucursal_origen]
+                );
+
+                console.log('Stock actual encontrado:', stockActual);
+
+                if (stockActual.length > 0) {
+                    const nuevaCantidad = stockActual[0].cantidad + detalle.cantidad_final;
+                    console.log('Actualizando stock existente:', {
+                        stock_id: stockActual[0].stock_id,
+                        cantidad_actual: stockActual[0].cantidad,
+                        cantidad_a_sumar: detalle.cantidad_final,
+                        nueva_cantidad: nuevaCantidad
+                    });
+
+                    // Actualizar stock existente
+                    await connection.query(`
+                UPDATE stock 
+                SET cantidad = ?,
+                    fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE producto_id = ? 
+                AND sucursal_id = ?
+            `, [nuevaCantidad, detalle.producto_id, pedidoActual[0].sucursal_origen]);
+                } else {
+                    console.log('Creando nuevo registro de stock:', {
+                        producto_id: detalle.producto_id,
+                        sucursal_id: pedidoActual[0].sucursal_origen,
+                        cantidad_inicial: detalle.cantidad_final
+                    });
+
+                    // Crear nuevo registro de stock
+                    await connection.query(`
+                INSERT INTO stock (
+                    sucursal_id,
+                    producto_id,
+                    cantidad,
+                    fecha_actualizacion,
+                    created_at
+                ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            `, [pedidoActual[0].sucursal_origen, detalle.producto_id, detalle.cantidad_final]);
+                }
+            }
         }
 
         // Actualizar estado del pedido
@@ -521,28 +593,40 @@ const compararCambios = async (req, res) => {
 const marcarProductoRecibido = async (req, res) => {
     const connection = await pool.getConnection();
     try {
-        console.log('Recibiendo petici n de marcar:', {
+        await connection.beginTransaction();
+
+        console.log('Recibiendo petición de marcar:', {
             params: req.params,
             body: req.body
         });
-
-        await connection.beginTransaction();
 
         const { pedidoId, detalleId } = req.params;
         const { recibido } = req.body;
         const sucursalId = req.user.sucursal_id;
 
-        // Convertir expl citamente a 1 o 0 para MySQL
+        // Convertir explícitamente a 1 o 0 para MySQL
         const valorRecibido = recibido ? 1 : 0;
 
-        // Verificar que es un pedido v lido y el usuario tiene permisos
+        // Verificar que es un pedido válido y el usuario tiene permisos
         const [[pedido]] = await connection.query(
-            'SELECT estado, sucursal_origen FROM pedido WHERE pedido_id = ?',
+            `SELECT estado, sucursal_origen, sucursal_destino 
+             FROM pedido 
+             WHERE pedido_id = ?`,
             [pedidoId]
         );
 
-        if (!pedido || !['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)) {
-            throw new Error('Pedido no v lido o en estado incorrecto');
+        if (!pedido) {
+            throw new Error('Pedido no encontrado');
+        }
+
+        if (!['PREPARADO', 'PREPARADO_MODIFICADO'].includes(pedido.estado)) {
+            throw new Error('El pedido debe estar en estado PREPARADO o PREPARADO_MODIFICADO');
+        }
+
+        // Verificar que el usuario pertenece a la sucursal origen
+        const userSucursal = req.user.sucursales.find(s => s.id === pedido.sucursal_origen);
+        if (!userSucursal) {
+            throw new Error('No tiene permisos para marcar productos como recibidos');
         }
 
         console.log('Ejecutando update con:', {
@@ -560,24 +644,26 @@ const marcarProductoRecibido = async (req, res) => {
             [valorRecibido, detalleId, pedidoId]
         );
 
-        // Verificar el cambio inmediatamente despu s
+        // Verificar el cambio inmediatamente después
         const [[actualizado]] = await connection.query(
             'SELECT detalle_id, recibido FROM detalle_pedido WHERE detalle_id = ?',
             [detalleId]
         );
 
-        console.log('Estado despu s de actualizar:', actualizado);
-
         await connection.commit();
         res.json({
             success: true,
-            message: 'Estado de recepci n actualizado',
+            message: 'Estado de recepción actualizado',
             estadoActual: actualizado.recibido === 1
         });
+
     } catch (error) {
         await connection.rollback();
         console.error('Error al marcar producto como recibido:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+            error: error.message,
+            details: 'Error al marcar producto como recibido'
+        });
     } finally {
         connection.release();
     }
@@ -683,6 +769,30 @@ const agregarProductosAPedido = async (req, res) => {
     }
 };
 
+
+async function tieneCambiosPendientes(pedidoId, connection) {
+    console.log('Verificando cambios pendientes para pedido:', pedidoId);
+
+    const [detalles] = await connection.query(`
+        SELECT COUNT(*) as total
+        FROM detalle_pedido 
+        WHERE pedido_id = ? 
+        AND (
+            modificado = 1 
+            OR (cantidad_confirmada IS NOT NULL AND cantidad_confirmada != cantidad_solicitada)
+        )
+    `, [pedidoId]);
+
+    console.log('Resultado verificación de cambios:', {
+        pedidoId,
+        totalCambios: detalles[0].total,
+        hayCambios: detalles[0].total > 0
+    });
+
+    return detalles[0].total > 0;
+}
+
+
 function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
     console.log('Validando transición:', {
         estadoActual,
@@ -703,11 +813,10 @@ function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
             PREPARADO_MODIFICADO: sucursalId === pedido.sucursal_destino
         },
         PREPARADO: {
-            FINALIZADO: sucursalId === pedido.sucursal_origen,  // Cambiado: de RECIBIDO a FINALIZADO
+            FINALIZADO: (sucursalId === pedido.sucursal_origen),
             RECIBIDO_CON_DIFERENCIAS: sucursalId === pedido.sucursal_origen
         },
         PREPARADO_MODIFICADO: {
-            FINALIZADO: sucursalId === pedido.sucursal_origen,  // Cambiado: de RECIBIDO a FINALIZADO
             RECIBIDO_CON_DIFERENCIAS: sucursalId === pedido.sucursal_origen
         },
         RECIBIDO_CON_DIFERENCIAS: {
@@ -731,6 +840,8 @@ function esTransicionValida(estadoActual, nuevoEstado, sucursalId, pedido) {
 
     return esValida;
 }
+
+
 
 const modificarCantidadProducto = async (req, res) => {
     const connection = await pool.getConnection();
@@ -899,6 +1010,8 @@ const getPedidoHistorial = async (req, res) => {
     }
 };
 module.exports = {
+    esTransicionValida,
+    tieneCambiosPendientes,
     getPedidos,
     getPedidoById,
     createPedido,

@@ -194,7 +194,23 @@ export const usePedidoStore = defineStore('pedido', {
                 rolEnPedido: this.rolEnPedido
             });
         },
-
+        async marcarProductoRecibido(pedidoId, detalleId, recibido) {
+            try {
+                const response = await axios.patch(
+                    `/api/pedidos/${pedidoId}/productos/${detalleId}/recibido`,
+                    { recibido },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }
+                );
+                return response.data;
+            } catch (error) {
+                console.error('Error al marcar producto como recibido:', error);
+                throw error;
+            }
+        },
         async modificarCantidadProducto(pedidoId, detalleId, cantidad) {
             if (this.pedido?.estado === 'FINALIZADO') {
                 throw new Error('No se puede modificar un pedido finalizado');

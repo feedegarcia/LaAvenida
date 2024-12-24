@@ -47,6 +47,12 @@
                 nombre: sucursales.value[0].nombre
             };
             localStorage.setItem('ultimaSucursalSeleccionada', sucursales.value[0].id.toString());
+
+            // Emitir el evento para la única sucursal
+            emit('sucursal-seleccionada', {
+                id: sucursales.value[0].id,
+                nombre: sucursales.value[0].nombre
+            });
             return;
         }
 

@@ -2,7 +2,7 @@
   "ExpandedNodes": [
     "",
     "\\backend",
-    "\\backend\\middleware",
+    "\\backend\\routes",
     "\\la-avenida",
     "\\la-avenida\\src",
     "\\la-avenida\\src\\components",
@@ -10,9 +10,8 @@
     "\\la-avenida\\src\\components\\pedidos\\nuevo",
     "\\la-avenida\\src\\stores",
     "\\la-avenida\\src\\utils",
-    "\\la-avenida\\src\\views",
-    "\\la-avenida\\src\\views\\admin"
+    "\\la-avenida\\src\\views"
   ],
-  "SelectedNode": "\\backend\\routes\\productos.js",
+  "SelectedNode": "\\la-avenida\\src\\components\\pedidos\\WeatherWidget.vue",
   "PreviewInSolutionExplorer": false
 }

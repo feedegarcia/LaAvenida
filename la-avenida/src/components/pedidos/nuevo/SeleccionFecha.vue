@@ -1,16 +1,3 @@
-<template>
-    <div class="grid grid-cols-3 gap-6 mb-6">
-        <div class="col-span-2">
-            <CalendarioReducido v-model="fechaSeleccionada"
-                                @update:modelValue="onFechaSeleccionada" />
-        </div>
-        <div class="col-span-1">
-            <WeatherWidget v-if="fechaSeleccionada"
-                           :fecha-pedido="normalizarFecha(fechaSeleccionada)" />
-        </div>
-    </div>
-</template>
-
 <script setup>
     import { ref, watch, onMounted } from 'vue';
     import CalendarioReducido from '@/components/calendario/CalendarioReducido.vue';
@@ -18,7 +5,8 @@
     import { useNuevoPedidoStore } from '@/stores/nuevoPedidoStore';
 
     const nuevoPedidoStore = useNuevoPedidoStore();
-    const fechaSeleccionada = ref(new Date()); // Inicializamos con la fecha actual
+    const fechaSeleccionada = ref(new Date());
+    const widgetKey = ref(0); 
 
     const normalizarFecha = (fecha) => {
         if (!fecha) return new Date();
@@ -28,23 +16,40 @@
     };
 
     const onFechaSeleccionada = (fecha) => {
-        fechaSeleccionada.value = fecha;
-        nuevoPedidoStore.pedido.fecha_entrega_requerida = fecha;
+        const nuevaFecha = normalizarFecha(fecha);
+        fechaSeleccionada.value = nuevaFecha;
+        nuevoPedidoStore.pedido.fecha_entrega_requerida = nuevaFecha;
+        widgetKey.value++; 
     };
 
     onMounted(() => {
         if (nuevoPedidoStore.pedido.fecha_entrega_requerida) {
-            fechaSeleccionada.value = new Date(nuevoPedidoStore.pedido.fecha_entrega_requerida);
+            fechaSeleccionada.value = normalizarFecha(nuevoPedidoStore.pedido.fecha_entrega_requerida);
         } else {
             const fechaProxima = nuevoPedidoStore.obtenerProximaFechaEntrega();
-            fechaSeleccionada.value = fechaProxima;
-            nuevoPedidoStore.pedido.fecha_entrega_requerida = fechaProxima;
+            fechaSeleccionada.value = normalizarFecha(fechaProxima);
+            nuevoPedidoStore.pedido.fecha_entrega_requerida = fechaSeleccionada.value;
         }
     });
 
     watch(() => nuevoPedidoStore.pedido.fecha_entrega_requerida, (nuevaFecha) => {
-        if (nuevaFecha && nuevaFecha !== fechaSeleccionada.value) {
-            fechaSeleccionada.value = nuevaFecha;
+        if (nuevaFecha && nuevaFecha.getTime() !== fechaSeleccionada.value.getTime()) {
+            fechaSeleccionada.value = normalizarFecha(nuevaFecha);
+            widgetKey.value++; 
         }
     });
 </script>
+
+<template>
+    <div class="grid grid-cols-3 gap-6 mb-6">
+        <div class="col-span-2">
+            <CalendarioReducido v-model="fechaSeleccionada"
+                                @update:modelValue="onFechaSeleccionada" />
+        </div>
+        <div class="col-span-1">
+            <WeatherWidget v-if="fechaSeleccionada"
+                           :key="widgetKey"
+                           :fecha-pedido="fechaSeleccionada" />
+        </div>
+    </div>
+</template>

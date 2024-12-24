@@ -109,11 +109,16 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 this.cargando = true;
                 this.error = null;
 
+                console.log('Intentando cargar productos para sucursal:', this.pedido.sucursal_origen);
+                console.log('Estado actual del pedido:', this.pedido);
+
                 const response = await axios.get('/api/productos/pedido', {
                     params: {
                         sucursal_id: this.pedido.sucursal_origen
                     }
                 });
+
+                console.log('Respuesta del servidor:', response.data);
 
                 this.productos = {
                     fabricas: response.data.fabricas || {},
@@ -122,7 +127,12 @@ export const useNuevoPedidoStore = defineStore('nuevoPedido', {
                 };
             } catch (error) {
                 if (error.name !== 'CanceledError') {
-                    console.error('Error en cargarProductos:', error);
+                    console.error('Error detallado en cargarProductos:', {
+                        message: error.message,
+                        response: error.response?.data,
+                        status: error.response?.status,
+                        headers: error.response?.headers
+                    });
                     this.error = 'Error al cargar productos';
                 }
             } finally {
