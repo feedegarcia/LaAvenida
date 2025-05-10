@@ -1,16 +1,16 @@
 <template>
     <div v-if="proximoEvento" class="bg-white rounded-lg shadow p-4 mb-6">
         <div class="text-center">
-            <h3 class="text-lg font-semibold text-gray-800">Próximo Evento</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Proximo Evento</h3>
             <p class="text-4xl font-bold text-emerald-600 my-2">
-                {{ diasRestantes }} {{ diasRestantes === 1 ? 'DÍA' : 'DÍAS' }}
+                {{ diasRestantes }} {{ diasRestantes === 1 ? 'DiA' : 'DiAS' }}
             </p>
             <p class="text-gray-600">
                 para <span class="font-medium">{{ proximoEvento.nombre }}</span>
                 el <span class="font-medium">{{ formatoFecha(proximoEvento.fecha_inicio) }}</span>
             </p>
             <p class="text-sm text-gray-500 mt-1">
-                {{ proximoEvento.tipo_nombre || 'Sin categoría' }}
+                {{ proximoEvento.tipo_nombre || 'Sin categoria' }}
             </p>
         </div>
     </div>
@@ -72,14 +72,14 @@ const cargarEventos = async () => {
 
 // Agregar un watcher para recargar eventos cuando cambie algo
 watch(() => eventos.value, () => {
-    console.log('Eventos actualizados, recalculando próximo evento');
+    console.log('Eventos actualizados, recalculando proximo evento');
 }, { deep: true });
 
 // Cargar eventos inicialmente
 onMounted(() => {
     cargarEventos();
     
-    // Actualizar cada minuto para mantener el contador al día
+    // Actualizar cada minuto para mantener el contador al dia
     setInterval(() => {
         cargarEventos();
     }, 60000);

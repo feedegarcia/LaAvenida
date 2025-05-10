@@ -80,7 +80,7 @@ const createTipoEvento = async (req, res) => {
     try {
         const { nombre, color } = req.body;
 
-        // Validación de campos requeridos
+        // Validacion de campos requeridos
         if (!nombre || !color) {
             return res.status(400).json({
                 error: 'Nombre y color son campos requeridos',
@@ -103,7 +103,7 @@ const createTipoEvento = async (req, res) => {
         });
     } catch (error) {
         console.error('Error detallado en createTipoEvento:', error);
-        // Si es un error de duplicado (código 1062 en MySQL)
+        // Si es un error de duplicado (codigo 1062 en MySQL)
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({
                 error: 'Ya existe un tipo de evento con ese nombre'

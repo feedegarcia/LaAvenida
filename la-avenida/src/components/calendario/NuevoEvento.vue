@@ -63,7 +63,7 @@
                                        v-model="isMultipleDays"
                                        class="rounded border-gray-300 text-emerald-500">
                                 <label for="multipleDays" class="ml-2 text-sm text-gray-600">
-                                    Evento de múltiples días
+                                    Evento de multiples dias
                                 </label>
                             </div>
 
@@ -79,10 +79,10 @@
                             </div>
                         </div>
 
-                        <!-- Descripción -->
+                        <!-- Descripcion -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Descripción
+                                Descripcion
                             </label>
                             <textarea v-model="eventForm.descripcion"
                                       rows="3"
@@ -150,7 +150,7 @@ const closeModal = () => {
 
 const saveTipoEvento = async (tipo) => {
   try {
-    // Aquí guardamos el tipo
+    // Aqui guardamos el tipo
     await loadTiposEvento()
     closeTipoModal()
   } catch (error) {

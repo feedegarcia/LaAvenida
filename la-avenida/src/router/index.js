@@ -97,7 +97,7 @@ const verifyToken = (token) => {
         const decoded = jwtDecode(token);
         const currentTime = Date.now() / 1000;
 
-        // Verificar si el token está expirado (8 horas)
+        // Verificar si el token esta expirado (8 horas)
         if (decoded.exp && decoded.exp < currentTime) {
             return false;
         }
@@ -109,11 +109,11 @@ const verifyToken = (token) => {
     }
 }
 
-// Guard de navegación mejorado
+// Guard de navegacion mejorado
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
 
-    // Si la ruta requiere autenticación
+    // Si la ruta requiere autenticacion
     if (to.meta.requiresAuth) {
         if (!token || !verifyToken(token)) {
             localStorage.removeItem('token')
@@ -138,14 +138,14 @@ router.beforeEach((to, from, next) => {
 
         next()
     } else if (to.path === '/login' && token && verifyToken(token)) {
-        // Si intenta acceder al login con un token válido
+        // Si intenta acceder al login con un token valido
         next('/')
     } else {
         next()
     }
 })
 
-// Configuración global de axios
+// Configuracion global de axios
 axios.defaults.baseURL = 'http://localhost:3000'
 
 // Interceptor para agregar el token a todas las peticiones

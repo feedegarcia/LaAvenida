@@ -3,7 +3,7 @@
     <div>
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-avenida-black">Gestión de Usuarios</h2>
+            <h2 class="text-2xl font-bold text-avenida-black">Gestion de Usuarios</h2>
             <button @click="crearNuevoUsuario"
                     class="px-4 py-2 bg-avenida-green text-white rounded hover:bg-green-600 transition-colors">
                 Nuevo Usuario

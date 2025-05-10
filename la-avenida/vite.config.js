@@ -20,5 +20,8 @@ export default defineConfig({
         fs: {
             strict: true
         }
+    },
+    build: {
+        charset: 'utf8'
     }
 })

@@ -2,10 +2,23 @@
 import { defineStore } from 'pinia'
 import { jwtDecode } from 'jwt-decode'
 
+const initializeUser = () => {
+    const token = localStorage.getItem('token')
+    if (token) {
+        try {
+            return jwtDecode(token)
+        } catch {
+            localStorage.removeItem('token')
+            return null
+        }
+    }
+    return null
+
+}
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: localStorage.getItem('token'),
-        user: null
+        user: initializeUser() 
     }),
 
     getters: {

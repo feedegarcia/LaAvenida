@@ -82,7 +82,7 @@
                         </div>
                     </div>
                     <p class="text-sm text-gray-500 mt-1">
-                        * Las sucursales inactivas solo aparecerán si el usuario ya estaba asignado a ellas
+                        * Las sucursales inactivas solo apareceran si el usuario ya estaba asignado a ellas
                     </p>
                 </div>
 
@@ -157,7 +157,7 @@
             sucursales.value = sucursalesRes.data
         } catch (err) {
             console.error('Error cargando datos:', err)
-            error.value = 'Error al cargar datos. Por favor, recarga la página.'
+            error.value = 'Error al cargar datos. Por favor, recarga la pagina.'
         } finally {
             loading.value = false
         }
