@@ -1,0 +1,80 @@
+:root{--verde:#4E6838;--verde-osc:#3b5029;--negro:#141414;--gris:#f3f2ef;--gris2:#e4e2dc;--txt2:#555;--blanco:#fff;--r:14px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--negro);background:var(--blanco);line-height:1.55;-webkit-text-size-adjust:100%}
+h1,h2,h3,.logo-txt{font-family:Montserrat,system-ui,sans-serif;line-height:1.1;letter-spacing:-.01em;margin:0}
+h1{font-size:clamp(2rem,7vw,3.6rem);font-weight:800}
+h2{font-size:clamp(1.5rem,4.5vw,2.25rem);font-weight:800;margin-bottom:.6rem}
+h3{font-size:1.05rem;font-weight:700}
+a{color:inherit}
+img,svg{max-width:100%;height:auto}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+section{padding:56px 0}
+.alt{background:var(--gris)}
+.kicker{font:700 .75rem Montserrat,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--verde);margin:0 0 .6rem}
+.lead{font-size:1.1rem;color:var(--txt2);max-width:60ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:48px;padding:0 22px;border-radius:999px;border:2px solid var(--verde);background:var(--verde);color:#fff;font:700 .95rem Montserrat,sans-serif;text-decoration:none;cursor:pointer}
+.btn:hover{background:var(--verde-osc);border-color:var(--verde-osc)}
+.btn.sec{background:transparent;color:var(--verde)}
+.btn.sec:hover{background:var(--verde);color:#fff}
+.btn.neg{background:var(--negro);border-color:var(--negro)}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:1.2rem}
+/* header */
+header.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);border-bottom:1px solid var(--gris2)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px}
+.logo img{height:44px;width:auto;display:block}
+nav.main{display:none;gap:22px}
+nav.main a{text-decoration:none;font:600 .9rem Montserrat,sans-serif}
+nav.main a:hover{color:var(--verde)}
+.bar .btn{min-height:42px;padding:0 18px;font-size:.85rem}
+@media(min-width:820px){nav.main{display:flex}}
+.mnav{display:flex;gap:16px;overflow-x:auto;padding:0 16px 10px;font:600 .85rem Montserrat,sans-serif;white-space:nowrap}
+.mnav a{text-decoration:none;color:var(--txt2)}
+@media(min-width:820px){.mnav{display:none}}
+/* hero */
+.hero{padding:48px 0 40px}
+.hero .lead{margin:1rem 0 0}
+.sel{margin-top:1.6rem;background:var(--gris);border-radius:var(--r);padding:16px;max-width:520px}
+.sel label{display:block;font:700 .8rem Montserrat,sans-serif;margin-bottom:8px}
+.sel-row{display:flex;gap:8px;flex-wrap:wrap}
+.sel select{flex:1 1 200px;min-height:48px;border-radius:10px;border:1px solid var(--gris2);padding:0 12px;font:inherit;background:#fff}
+.hero-foto{margin-top:28px;aspect-ratio:16/9;border-radius:var(--r);background:var(--gris) center/cover;display:flex;align-items:center;justify-content:center;color:var(--txt2);font-size:.9rem;text-align:center;padding:16px}
+.mascota{width:84px;height:auto}
+/* cards */
+.grid{display:grid;gap:14px}
+@media(min-width:720px){.grid.c3{grid-template-columns:repeat(3,1fr)}.grid.c2{grid-template-columns:repeat(2,1fr)}}
+.card{background:#fff;border:1px solid var(--gris2);border-radius:var(--r);padding:20px}
+.card.dest{border:2px solid var(--verde)}
+.card p{margin:.4rem 0 0;color:var(--txt2);font-size:.95rem}
+.tag{display:inline-block;font:700 .7rem Montserrat,sans-serif;background:var(--verde);color:#fff;border-radius:999px;padding:3px 10px;margin-bottom:8px}
+.tag.gris{background:var(--gris2);color:var(--txt2)}
+/* sucursal */
+.horarios{list-style:none;padding:0;margin:.6rem 0 0}
+.horarios li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--gris2);font-size:.95rem}
+.horarios b{font-weight:700}
+.mapa{border:0;width:100%;height:320px;border-radius:var(--r);background:var(--gris);margin-top:1rem}
+.pend{background:#fff8e1;border:1px dashed #c9a227;border-radius:10px;padding:12px;font-size:.9rem;margin-top:1rem}
+/* catalogo */
+.filtros{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px}
+.filtros button{flex:none;min-height:42px;padding:0 16px;border-radius:999px;border:1.5px solid var(--gris2);background:#fff;font:600 .85rem Montserrat,sans-serif;cursor:pointer}
+.filtros button[aria-pressed=true]{background:var(--verde);border-color:var(--verde);color:#fff}
+.prod{background:#fff;border:1px solid var(--gris2);border-radius:var(--r);padding:16px}
+.prod[hidden]{display:none}
+.prod small{color:var(--txt2);display:block;margin-top:4px}
+.prod .cat{font:700 .68rem Montserrat,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--verde)}
+/* footer */
+footer{background:var(--negro);color:#ddd;padding:40px 0 28px;font-size:.92rem}
+footer a{color:#fff}
+footer h3{color:#fff;margin-bottom:.6rem}
+footer ul{list-style:none;padding:0;margin:0}
+footer li{margin:.3rem 0}
+.copy{border-top:1px solid #333;margin-top:24px;padding-top:16px;color:#999;font-size:.82rem}
+/* dialog */
+dialog{border:0;border-radius:var(--r);padding:0;width:min(520px,calc(100% - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.dlg{padding:20px}
+.dlg .suc{border:1px solid var(--gris2);border-radius:12px;padding:14px;margin-top:10px}
+.dlg .cerrar{float:right;background:none;border:0;font-size:1.6rem;cursor:pointer;line-height:1}
+.fab{position:fixed;right:14px;bottom:14px;z-index:15}
+@media(min-width:820px){.fab{display:none}}
+.fab .btn{box-shadow:0 6px 18px rgba(0,0,0,.25)}

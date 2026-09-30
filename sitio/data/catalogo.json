@@ -1,0 +1,26 @@
+{
+  "_nota": "EJEMPLO. Reemplazar por el export del sistema (Firestore). Sin precios a propósito. Formato: categorias[] con productos[{nombre, descripcion, foto?, tacc?}].",
+  "categorias": [
+    { "id": "ravioles", "nombre": "Ravioles y Raviolones", "productos": [
+      { "nombre": "Carne braseada" },
+      { "nombre": "Espinaca y parmesano" },
+      { "nombre": "Cuatro quesos" }
+    ]},
+    { "id": "sorrentinos", "nombre": "Sorrentinos artesanales", "productos": [
+      { "nombre": "Jamón y muzzarella" },
+      { "nombre": "Calabaza" }
+    ]},
+    { "id": "fideos", "nombre": "Fideos y cintas al huevo", "productos": [
+      { "nombre": "Fideos al huevo", "descripcion": "Al corte, del ancho que prefieras." },
+      { "nombre": "Cintas al huevo", "descripcion": "Al corte." }
+    ]},
+    { "id": "salsas", "nombre": "Salsas caseras", "productos": [
+      { "nombre": "Filetto" },
+      { "nombre": "Bolognesa" },
+      { "nombre": "Pesto" }
+    ]},
+    { "id": "sin-tacc", "nombre": "Línea sin TACC", "productos": [
+      { "nombre": "Pastas, pizzas y empanadas sin TACC", "descripcion": "De Leofanti y Sintaxis, marcas certificadas. Se guardan en un freezer aparte." }
+    ]}
+  ]
+}

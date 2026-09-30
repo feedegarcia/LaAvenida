@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://pastaslaavenida.com.ar/sitemap.xml

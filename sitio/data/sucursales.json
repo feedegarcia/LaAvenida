@@ -1,0 +1,45 @@
+{
+  "marca": {
+    "nombre": "La Avenida Pastas Frescas",
+    "dominio": "https://pastaslaavenida.com.ar",
+    "instagram": "pastaslaavenida.ciudadjardin"
+  },
+  "sucursales": [
+    {
+      "slug": "ciudad-jardin",
+      "nombre": "Ciudad Jardín",
+      "destacada": true,
+      "completa": true,
+      "calle": "Avenida Doctor Ricardo Balbín 2884",
+      "localidad": "Ciudad Jardín Lomas del Palomar",
+      "partido": "Tres de Febrero",
+      "provincia": "Buenos Aires",
+      "cp": "",
+      "telefono": "011 7714-9334",
+      "whatsapp": "5491177149334",
+      "pedidosya": "",
+      "maps": "",
+      "geo": null,
+      "horarios": [
+        { "dias": "Lunes a sábados", "horas": "09:00 a 13:00 y 16:00 a 20:00", "schema": { "dias": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "abre": "09:00", "cierra": "13:00" }, "schema2": { "abre": "16:00", "cierra": "20:00" } },
+        { "dias": "Domingos", "horas": "09:30 a 13:30", "schema": { "dias": ["Sunday"], "abre": "09:30", "cierra": "13:30" } }
+      ]
+    },
+    {
+      "slug": "ramos-mejia",
+      "nombre": "Ramos Mejía",
+      "destacada": false,
+      "completa": false,
+      "calle": "", "localidad": "Ramos Mejía", "partido": "La Matanza", "provincia": "Buenos Aires", "cp": "",
+      "telefono": "", "whatsapp": "", "pedidosya": "", "maps": "", "geo": null, "horarios": []
+    },
+    {
+      "slug": "haedo",
+      "nombre": "Haedo",
+      "destacada": false,
+      "completa": false,
+      "calle": "", "localidad": "Haedo", "partido": "Morón", "provincia": "Buenos Aires", "cp": "",
+      "telefono": "", "whatsapp": "", "pedidosya": "", "maps": "", "geo": null, "horarios": []
+    }
+  ]
+}
