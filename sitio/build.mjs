@@ -7,6 +7,8 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const dest = sucursales.find(s => s.destacada);
 const dir = s => [s.calle, s.localidad, s.provincia].filter(Boolean).join(', ');
 const mapsLink = s => s.maps || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir(s))}`;
+const digits = t => String(t).replace(/\D/g, '');
+const tel = s => s.whatsapp ? `+${s.whatsapp}` : `+54${digits(s.telefono).replace(/^0/, '')}`;
 const wa = (s, t) => `https://wa.me/${s.whatsapp}?text=${encodeURIComponent(t || `Hola! Quiero hacer un pedido en La Avenida ${s.nombre}.`)}`;
 
 const MASCOTA = `<svg class="mascota" viewBox="0 0 100 100" role="img" aria-label="Raviolín, la mascota de La Avenida"><path d="M12 22h76v66H12z" fill="#fff" stroke="#141414" stroke-width="3" stroke-linejoin="round"/><path d="M10 20l6-8 6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8 6 8" fill="none" stroke="#141414" stroke-width="3" stroke-linejoin="round" transform="translate(0 4)"/><circle cx="36" cy="52" r="5" fill="#141414"/><circle cx="64" cy="52" r="5" fill="#141414"/><path d="M38 68q12 12 24 0" fill="none" stroke="#4E6838" stroke-width="4" stroke-linecap="round"/></svg>`;
@@ -15,6 +17,7 @@ const botones = (s, cls = '') => {
   if (!s.completa) return `<span class="tag gris">Datos próximamente</span>`;
   const b = [];
   if (s.whatsapp) b.push(`<a class="btn ${cls}" href="${wa(s)}" rel="noopener">Pedir por WhatsApp</a>`);
+  else if (s.telefono) b.push(`<a class="btn ${cls}" href="tel:${tel(s)}">Llamar${s.telefonoLabel ? ' (' + esc(s.telefonoLabel.toLowerCase()) + ')' : ''}</a>`);
   if (s.pedidosya) b.push(`<a class="btn sec" href="${esc(s.pedidosya)}" rel="noopener">Pedir por PedidosYa</a>`);
   return b.join('');
 };
@@ -77,9 +80,9 @@ function ld(s) {
   const o = {
     '@context': 'https://schema.org', '@type': ['FoodEstablishment', 'Store'],
     name: `${marca.nombre} - ${s.nombre}`, url: `${marca.dominio}/${s.slug}/`, image: `${marca.dominio}/img/logo.png`,
-    telephone: `+${s.whatsapp}`, servesCuisine: 'Pastas frescas artesanales',
-    address: { '@type': 'PostalAddress', streetAddress: s.calle, addressLocality: s.localidad, addressRegion: s.provincia, addressCountry: 'AR' },
-    openingHoursSpecification: specs, sameAs: [`https://instagram.com/${marca.instagram}`]
+    telephone: tel(s), servesCuisine: 'Pastas frescas artesanales',
+    address: { '@type': 'PostalAddress', streetAddress: s.calle, ...(s.cp && { postalCode: s.cp }), addressLocality: s.localidad, addressRegion: s.provincia, addressCountry: 'AR' },
+    ...(specs.length && { openingHoursSpecification: specs }), ...(s.instagram && { sameAs: [`https://instagram.com/${s.instagram}`] })
   };
   if (s.geo) o.geo = { '@type': 'GeoCoordinates', latitude: s.geo.lat, longitude: s.geo.lng };
   return `<script type="application/ld+json">${JSON.stringify(o)}</script>`;
@@ -111,7 +114,7 @@ const calidad = () => `
 const sucCard = s => `<div class="card ${s.destacada ? 'dest' : ''}">
   ${s.destacada ? '<span class="tag">Sucursal destacada</span>' : ''}
   <h3>${esc(s.nombre)}</h3>
-  <p>${s.completa ? esc(dir(s)) : 'Próximamente más datos.'}</p>
+  ${s.detalle ? `<p><b>${esc(s.detalle)}</b></p>` : ''}<p>${s.completa ? esc(dir(s)) : 'Próximamente más datos.'}</p>
   <div class="btns">${s.completa ? `<a class="btn sec" href="/${s.slug}/">Ver sucursal</a>` : botones(s)}</div></div>`;
 
 // ---------- HOME ----------
@@ -150,13 +153,13 @@ function sucPage(s) {
     extra: s.completa ? ld(s) : ''
   }) + header() + `
 <main><section><div class="wrap">
-  <p class="kicker">Sucursal</p><h1 style="font-size:clamp(1.8rem,6vw,3rem)">${esc(s.nombre)}</h1>
+  <p class="kicker">Sucursal</p><h1 style="font-size:clamp(1.8rem,6vw,3rem)">${esc(s.nombre)}</h1>${s.detalle ? `<p class="kicker" style="margin-top:.6rem">${esc(s.detalle)}</p>` : ''}
   ${s.completa ? `
   <p class="lead">${esc(d)}</p>
   <div class="btns">${botones(s)}<a class="btn sec" href="${esc(mapsLink(s))}" rel="noopener">Cómo llegar (Google Maps)</a></div>
   <div class="grid c2" style="margin-top:28px">
-    <div class="card"><h3>Horarios</h3><ul class="horarios">${s.horarios.map(h => `<li><b>${esc(h.dias)}</b><span>${esc(h.horas)}</span></li>`).join('')}</ul></div>
-    <div class="card"><h3>Contacto</h3><p>Teléfono / WhatsApp: <a href="tel:+${s.whatsapp}">${esc(s.telefono)}</a></p><p>Instagram: <a href="https://instagram.com/${marca.instagram}" rel="noopener">@${marca.instagram}</a></p></div>
+    <div class="card"><h3>Horarios</h3>${s.horarios.length ? `<ul class="horarios">${s.horarios.map(h => `<li><b>${esc(h.dias)}</b><span>${esc(h.horas)}</span></li>`).join('')}</ul>` : '<p>Consultá los horarios por teléfono.</p>'}</div>
+    <div class="card"><h3>Contacto</h3><p>${esc(s.telefonoLabel || 'Teléfono')}: <a href="tel:${tel(s)}">${esc(s.telefono)}</a></p>${s.instagram ? `<p>Instagram: <a href="https://instagram.com/${s.instagram}" rel="noopener">@${s.instagram}</a></p>` : ''}</div>
   </div>
   <iframe class="mapa" title="Mapa de ${esc(s.nombre)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${encodeURIComponent(d)}&output=embed"></iframe>
   ` : `<p class="lead">Estamos preparando la página de esta sucursal.</p><div class="pend">Datos pendientes: dirección, teléfono/WhatsApp, horarios y link de PedidosYa.</div>`}

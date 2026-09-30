@@ -10,36 +10,95 @@
       "nombre": "Ciudad Jardín",
       "destacada": true,
       "completa": true,
-      "calle": "Avenida Doctor Ricardo Balbín 2884",
+      "calle": "Av. Dr. Ricardo Balbín 2884",
       "localidad": "Ciudad Jardín Lomas del Palomar",
       "partido": "Tres de Febrero",
       "provincia": "Buenos Aires",
-      "cp": "",
+      "cp": "B1684BPT",
       "telefono": "011 7714-9334",
       "whatsapp": "5491177149334",
       "pedidosya": "",
-      "maps": "",
-      "geo": null,
+      "maps": "https://www.google.com/maps/place/La+Avenida+Pastas+Frescas/@-34.6016034,-58.5910757,17z/data=!3m1!4b1!4m6!3m5!1s0x95bcb926c14c0357:0x33e9b7da2903df9b!8m2!3d-34.6016034!4d-58.5910757!16s%2Fg%2F11p3vjd9qz",
+      "geo": {
+        "lat": -34.6016034,
+        "lng": -58.5910757
+      },
       "horarios": [
-        { "dias": "Lunes a sábados", "horas": "09:00 a 13:00 y 16:00 a 20:00", "schema": { "dias": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "abre": "09:00", "cierra": "13:00" }, "schema2": { "abre": "16:00", "cierra": "20:00" } },
-        { "dias": "Domingos", "horas": "09:30 a 13:30", "schema": { "dias": ["Sunday"], "abre": "09:30", "cierra": "13:30" } }
-      ]
+        {
+          "dias": "Lunes a sábados",
+          "horas": "09:00 a 13:00 y 16:00 a 20:00",
+          "schema": {
+            "dias": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday"
+            ],
+            "abre": "09:00",
+            "cierra": "13:00"
+          },
+          "schema2": {
+            "abre": "16:00",
+            "cierra": "20:00"
+          }
+        },
+        {
+          "dias": "Domingos",
+          "horas": "09:30 a 13:30",
+          "schema": {
+            "dias": [
+              "Sunday"
+            ],
+            "abre": "09:30",
+            "cierra": "13:30"
+          }
+        }
+      ],
+      "instagram": "pastaslaavenida.ciudadjardin",
+      "detalle": "Pastas frescas",
+      "telefonoLabel": "Teléfono / WhatsApp"
     },
     {
       "slug": "ramos-mejia",
       "nombre": "Ramos Mejía",
       "destacada": false,
-      "completa": false,
-      "calle": "", "localidad": "Ramos Mejía", "partido": "La Matanza", "provincia": "Buenos Aires", "cp": "",
-      "telefono": "", "whatsapp": "", "pedidosya": "", "maps": "", "geo": null, "horarios": []
+      "completa": true,
+      "calle": "Av. de Mayo 630",
+      "localidad": "Ramos Mejía",
+      "partido": "La Matanza",
+      "provincia": "Buenos Aires",
+      "cp": "",
+      "telefono": "011 4658-0377",
+      "whatsapp": "",
+      "pedidosya": "",
+      "maps": "",
+      "geo": null,
+      "horarios": [],
+      "telefonoLabel": "Reservas",
+      "detalle": "Pastas frescas",
+      "instagram": ""
     },
     {
       "slug": "haedo",
-      "nombre": "Haedo",
+      "nombre": "Haedo Norte",
       "destacada": false,
-      "completa": false,
-      "calle": "", "localidad": "Haedo", "partido": "Morón", "provincia": "Buenos Aires", "cp": "",
-      "telefono": "", "whatsapp": "", "pedidosya": "", "maps": "", "geo": null, "horarios": []
+      "completa": true,
+      "calle": "Dr. Jerónimo Fasola 469",
+      "localidad": "Haedo",
+      "partido": "Morón",
+      "provincia": "Buenos Aires",
+      "cp": "B1706ELJ",
+      "telefono": "011 4460-5581",
+      "whatsapp": "",
+      "pedidosya": "",
+      "maps": "",
+      "geo": null,
+      "horarios": [],
+      "telefonoLabel": "Delivery",
+      "detalle": "Pastas frescas + Cocina",
+      "instagram": ""
     }
   ]
 }
