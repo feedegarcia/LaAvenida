@@ -54,7 +54,7 @@ const dialogo = () => `
 const footer = () => `
 <footer id="contacto"><div class="wrap">
   <div class="grid c3">
-    <div><h3>La Avenida Pastas Frescas</h3><p>Pastas artesanales de puro semolín de trigo candeal.</p>
+    <div>${MASCOTA('foot-mascota')}<h3>La Avenida Pastas Frescas</h3><p>Pastas artesanales de puro semolín de trigo candeal.</p>
       <p><a href="https://instagram.com/${marca.instagram}" rel="noopener">@${marca.instagram}</a></p></div>
     <div><h3>Sucursales</h3><ul>${sucursales.map(s => `<li><a href="/${s.slug}/">${esc(s.nombre)}</a>${s.telefono ? ` · ${esc(s.telefono)}` : ''}</li>`).join('')}</ul></div>
     <div><h3>Legales</h3><ul><li><a href="/terminos/">Términos y condiciones</a></li><li><a href="/privacidad/">Política de privacidad</a></li></ul></div>
@@ -146,7 +146,7 @@ function home() {
       <div class="sel-row"><select id="suc-sel">${sucursales.map(s => `<option value="${s.slug}"${s.destacada ? ' selected' : ''}>${esc(s.nombre)}</option>`).join('')}</select>
       <button class="btn" id="ir-suc" type="button">Ver sucursal</button></div></div>
   </div>
-  <div class="hero-arte" aria-hidden="true">${MASCOTA('mascota grande')}<span class="r r1">${MASCOTA('mini')}</span><span class="r r2">${MASCOTA('mini')}</span></div>
+  <div class="hero-arte" aria-hidden="true"><img class="hero-logo" src="/img/logo.png" width="400" height="215" alt="" fetchpriority="high"></div>
 </div></section>
 <section id="sucursales"><div class="wrap">
   <p class="kicker">Sucursales</p><h2>Encontranos</h2>
