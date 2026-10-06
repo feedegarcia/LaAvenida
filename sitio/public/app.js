@@ -1,12 +1,12 @@
 // Catálogo: filtros por categoría (el HTML ya viene renderizado, esto solo oculta/muestra)
 (function(){
-  var f=document.querySelector('.filtros');
-  if(f){f.addEventListener('click',function(e){
-    var b=e.target.closest('button');if(!b)return;
-    f.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});
-    var c=b.dataset.cat;
+  var botones=document.querySelectorAll('.filtros button,.tiles button');
+  botones.forEach(function(b){b.addEventListener('click',function(){
+    var c=b.dataset.cat,ya=b.getAttribute('aria-pressed')==='true'&&c!=='todo';
+    if(ya)c='todo';
+    botones.forEach(function(x){x.setAttribute('aria-pressed',x.dataset.cat===c)});
     document.querySelectorAll('.prod').forEach(function(p){p.hidden=c!=='todo'&&p.dataset.cat!==c});
-  })}
+  })});
   // Selector de sucursal del hero
   var go=document.getElementById('ir-suc');
   if(go){go.addEventListener('click',function(){

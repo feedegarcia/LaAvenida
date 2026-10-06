@@ -35,7 +35,7 @@ const botones = (s, cls = '') => {
 
 const header = () => `
 <header class="top"><div class="wrap bar">
-  <a class="logo" href="/" aria-label="${esc(marca.nombre)} - Inicio"><img src="/img/logo.png" width="82" height="44" alt="La Avenida Pastas Frescas"></a>
+  <a class="logo" href="/" aria-label="${esc(marca.nombre)} - Inicio"><img src="/img/logo.webp" width="86" height="46" alt="La Avenida Pastas Frescas"></a>
   <nav class="main" aria-label="Principal">
     <a href="/#menu">Menú de pastas</a><a href="/#sucursales">Sucursales</a><a href="/#calidad">Calidad &amp; elaboración</a><a href="/#contacto">Contacto</a>
   </nav>
@@ -100,8 +100,9 @@ function ld(s) {
 }
 
 const catalogo = () => `
-<section id="menu" class="marmol"><div class="wrap">
+<section id="menu"><div class="wrap">
   <p class="kicker">Nuestro menú</p><h2>Pastas frescas,<br>salsas y más</h2>
+  ${categorias.some(c => c.foto) ? `<div class="tiles">${categorias.filter(c => c.foto).map(c => `<button class="tile" data-cat="${esc(c.id)}" aria-pressed="false"><img src="${c.foto.src}" width="${c.foto.w}" height="${c.foto.h}" alt="${esc(c.foto.alt)}" loading="lazy"><span>${esc(c.nombre)}</span></button>`).join('')}</div>` : ''}
   <div class="filtros" role="group" aria-label="Filtrar por categoría">
     <button aria-pressed="true" data-cat="todo">Todo</button>
     ${categorias.map(c => `<button aria-pressed="false" data-cat="${esc(c.id)}">${esc(c.nombre)}</button>`).join('')}
@@ -137,7 +138,7 @@ function home() {
     extra: ld(dest)
   }) + header() + `
 <main>
-<section class="hero marmol"><div class="wrap hero-g">
+<section class="hero"><div class="wrap hero-g">
   <div>
     <p class="kicker">Fábrica de pastas · Zona oeste</p>
     <h1>Pastas frescas artesanales.<span>Del rodillo a tu mesa.</span></h1>
@@ -146,7 +147,7 @@ function home() {
       <div class="sel-row"><select id="suc-sel">${sucursales.map(s => `<option value="${s.slug}"${s.destacada ? ' selected' : ''}>${esc(s.nombre)}</option>`).join('')}</select>
       <button class="btn" id="ir-suc" type="button">Ver sucursal</button></div></div>
   </div>
-  <div class="hero-arte" aria-hidden="true"><img class="hero-logo" src="/img/logo.png" width="400" height="215" alt="" fetchpriority="high"></div>
+  <div class="hero-arte"><img class="hero-foto" src="/img/hero-pastas.webp" width="800" height="1071" alt="Pastas frescas artesanales en caja de cartón sobre mesada de mármol, con albahaca y mozzarella" fetchpriority="high"></div>
 </div></section>
 <section id="sucursales"><div class="wrap">
   <p class="kicker">Sucursales</p><h2>Encontranos</h2>
