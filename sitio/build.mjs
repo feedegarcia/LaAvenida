@@ -22,7 +22,7 @@ const MASCOTA = (cls = 'mascota') => `<svg class="${cls}" viewBox="-55 -55 110 1
 
 const DIAS = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
 const horariosAttr = s => esc(JSON.stringify(s.horarios.map(h => ({ d: h.schema.dias.map(x => DIAS[x]), t: [[h.schema.abre, h.schema.cierra], ...(h.schema2 ? [[h.schema2.abre, h.schema2.cierra]] : [])] }))));
-const estado = s => s.horarios.length ? `<p class="estado" data-h="${horariosAttr(s)}" aria-live="polite"></p>` : '';
+const estado = s => s.horarios.length ? `<p class="estado" data-h="${horariosAttr(s)}" aria-live="polite"></p>` : `<p class="estado">Horarios: consultá por teléfono</p>`;
 
 const botones = (s, cls = '') => {
   if (!s.completa) return `<span class="tag gris">Datos próximamente</span>`;
@@ -123,12 +123,13 @@ const calidad = () => `
   </div>
 </div></section>`;
 
-const sucCard = s => `<article class="suc ${s.destacada ? 'dest' : ''}">
-  ${s.destacada ? '<span class="tag">Sucursal destacada</span>' : ''}
+const sucCard = s => `<article class="suc">
   <h3>${esc(s.nombre)}</h3>
-  ${s.detalle ? `<p class="det">${esc(s.detalle)}</p>` : ''}
-  <p>${esc(dir(s))}</p>${estado(s)}
-  <div class="btns"><a class="btn sec" href="/${s.slug}/">Ver sucursal</a></div></article>`;
+  <p class="det">${esc(s.detalle || 'Pastas frescas')}</p>
+  <p>${esc(dir(s))}</p>
+  <p>${esc(s.telefonoLabel || 'Teléfono')}: <a href="tel:${tel(s)}">${esc(s.telefono)}</a></p>
+  ${estado(s)}
+  <div class="btns"><a class="btn sec" href="/${s.slug}/">Ver sucursal</a>${botones(s)}</div></article>`;
 
 // ---------- HOME ----------
 function home() {

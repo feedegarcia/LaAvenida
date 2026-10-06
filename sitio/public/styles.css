@@ -46,7 +46,6 @@ nav.main a:hover{color:var(--oliva)}
 .grid{display:grid;gap:16px}
 @media(min-width:720px){.grid.c3{grid-template-columns:repeat(3,1fr)}.grid.c2{grid-template-columns:repeat(2,1fr)}}
 .suc{background:var(--blanco);border:1px solid var(--linea);border-radius:10px;padding:24px;display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(60,45,30,.05)}
-.suc.dest{border-top:4px solid var(--oliva)}
 .suc p{margin:.5rem 0 0;font-size:.95rem}
 .suc .det{font:700 .72rem Montserrat,sans-serif;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
 .suc .btns{margin-top:auto;padding-top:1rem}
