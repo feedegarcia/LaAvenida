@@ -75,7 +75,7 @@ ${noindex ? '<meta name="robots" content="noindex,follow">' : ''}
 <meta name="theme-color" content="#4E6838">
 <meta property="og:type" content="website"><meta property="og:locale" content="es_AR">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${marca.dominio}${path}"><meta property="og:image" content="${marca.dominio}/img/logo.png">
+<meta property="og:url" content="${marca.dominio}${path}"><meta property="og:site_name" content="La Avenida Pastas Frescas"><meta property="og:image" content="${marca.dominio}/img/og.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Ravioles frescos en caja de cartón sobre mesada de mármol"><meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Montserrat:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="/styles.css">
@@ -90,7 +90,7 @@ function ld(s) {
   }
   const o = {
     '@context': 'https://schema.org', '@type': ['FoodEstablishment', 'Store'],
-    name: `${marca.nombre} - ${s.nombre}`, url: `${marca.dominio}/${s.slug}/`, image: `${marca.dominio}/img/logo.png`,
+    name: `${marca.nombre} - ${s.nombre}`, url: `${marca.dominio}/${s.slug}/`, image: [`${marca.dominio}/img/og.jpg`, `${marca.dominio}/img/logo.png`],
     telephone: tel(s), servesCuisine: 'Pastas frescas artesanales',
     address: { '@type': 'PostalAddress', streetAddress: s.calle, ...(s.cp && { postalCode: s.cp }), addressLocality: s.localidad, addressRegion: s.provincia, addressCountry: 'AR' },
     ...(specs.length && { openingHoursSpecification: specs }), ...(s.instagram && { sameAs: [`https://instagram.com/${s.instagram}`] })
@@ -102,7 +102,7 @@ function ld(s) {
 const catalogo = () => `
 <section id="menu"><div class="wrap">
   <p class="kicker">Nuestro menú</p><h2>Pastas frescas,<br>salsas y más</h2>
-  ${categorias.some(c => c.foto) ? `<div class="tiles">${categorias.filter(c => c.foto).map(c => `<button class="tile" data-cat="${esc(c.id)}" aria-pressed="false"><img src="${c.foto.src}" width="${c.foto.w}" height="${c.foto.h}" alt="${esc(c.foto.alt)}" loading="lazy"><span>${esc(c.nombre)}</span></button>`).join('')}</div>` : ''}
+  ${categorias.some(c => c.foto) ? `<div class="tiles">${categorias.filter(c => c.foto).map(c => `<button class="tile" data-cat="${esc(c.id)}" aria-pressed="false"><img src="${c.foto.src}" width="${c.foto.w}" height="${c.foto.h}" alt="${esc(c.foto.alt)}" loading="lazy" decoding="async"><span>${esc(c.nombre)}</span></button>`).join('')}</div>` : ''}
   <div class="filtros" role="group" aria-label="Filtrar por categoría">
     <button aria-pressed="true" data-cat="todo">Todo</button>
     ${categorias.map(c => `<button aria-pressed="false" data-cat="${esc(c.id)}">${esc(c.nombre)}</button>`).join('')}
@@ -136,7 +136,7 @@ function home() {
   return head({
     title: 'Pastas frescas artesanales | La Avenida Pastas Frescas', path: '/',
     desc: 'Pastas frescas artesanales de puro semolín de trigo candeal. Ravioles, sorrentinos, fideos al huevo, salsas y línea sin TACC. Sucursales en Ciudad Jardín, Ramos Mejía y Haedo.',
-    extra: ld(dest)
+    extra: `<link rel="preload" as="image" href="/img/pasta-rellena-caja.webp" type="image/webp" fetchpriority="high">` + ld(dest)
   }) + header() + `
 <main>
 <section class="hero"><div class="wrap hero-g">
@@ -148,7 +148,7 @@ function home() {
       <div class="sel-row"><select id="suc-sel">${sucursales.map(s => `<option value="${s.slug}"${s.destacada ? ' selected' : ''}>${esc(s.nombre)}</option>`).join('')}</select>
       <button class="btn" id="ir-suc" type="button">Ver sucursal</button></div></div>
   </div>
-  <div class="hero-arte"><img class="hero-foto" src="/img/hero-pastas.webp" width="800" height="1071" alt="Pastas frescas artesanales en caja de cartón sobre mesada de mármol, con albahaca y mozzarella" fetchpriority="high"></div>
+  <div class="hero-arte"><img class="hero-foto" src="/img/pasta-rellena-caja.webp" width="800" height="1067" alt="Pasta fresca rellena artesanal, en caja de cartón sobre mesada de mármol" decoding="async" fetchpriority="high"></div>
 </div></section>
 <section id="sucursales"><div class="wrap">
   <p class="kicker">Sucursales</p><h2>Encontranos</h2>

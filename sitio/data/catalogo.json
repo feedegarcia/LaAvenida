@@ -16,10 +16,10 @@
         }
       ],
       "foto": {
-        "src": "/img/ravioles.webp",
+        "src": "/img/ravioles-frescos-caja.webp",
         "w": 640,
-        "h": 857,
-        "alt": "Ravioles frescos en caja de cartón sobre mesada de mármol"
+        "h": 853,
+        "alt": "Ravioles frescos cuadrados de La Avenida, en caja de cartón sobre mesada de mármol"
       }
     },
     {
@@ -31,6 +31,21 @@
         },
         {
           "nombre": "Calabaza"
+        }
+      ]
+    },
+    {
+      "id": "noquis",
+      "nombre": "Ñoquis",
+      "foto": {
+        "src": "/img/noquis-frescos-bolsa.webp",
+        "w": 640,
+        "h": 853,
+        "alt": "Ñoquis frescos de La Avenida en bolsa transparente sobre mesada de mármol"
+      },
+      "productos": [
+        {
+          "nombre": "Ñoquis"
         }
       ]
     },
@@ -63,10 +78,10 @@
         }
       ],
       "foto": {
-        "src": "/img/salsas.webp",
+        "src": "/img/salsa-bolognesa-casera.webp",
         "w": 640,
-        "h": 857,
-        "alt": "Salsa casera de tomate en pote, con tomates y albahaca"
+        "h": 853,
+        "alt": "Salsa bolognesa casera de La Avenida en pote, lista para llevar"
       }
     },
     {
